@@ -1,0 +1,1 @@
+/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/gennodejs/ros/yolo_detection_package/_index.js

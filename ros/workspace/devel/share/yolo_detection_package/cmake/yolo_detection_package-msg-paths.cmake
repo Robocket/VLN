@@ -1,0 +1,1 @@
+/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/yolo_detection_package/cmake/yolo_detection_package-msg-paths.cmake

@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/setup.sh

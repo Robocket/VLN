@@ -1,0 +1,40 @@
+ctrl + alt + t #
+conda activate pytorch_38 #
+cd ~/vln/ros/workspace
+source ~/vln/ros/workspace/devel/setup.bash
+roslaunch yolo_detection_package yolo_detection.launch
+
+#训练
+python train.py --data vln.yaml --epochs 300 --weights '' --cfg yolov5s.yaml --batch-size 16
+
+#编译
+catkin build --cmake-args -DPYTHON_EXECUTABLE=/home/crl/miniconda3/envs/vln_env/bin/python3
+
+
+
+gedit ~/.bashrc
+
+# 回到ROS工作空间
+cd ~/vln/ros/workspace
+catkin_make  # 重新编译确保脚本权限和路径正确
+
+source ~/vln/ros/workspace/devel/setup.bash
+source devel/setup.bash
+source /opt/ros/noetic/setup.bash
+
+# 启动launch文件
+roslaunch yolo_detection_package yolo_detection.launch
+
+
+#下载权重
+wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt ~/yolov5/weights_download/
+
+#realsense
+realsense-viewer
+
+
+roslaunch livox_ros_driver2 msg_MID360.launch
+roslaunch fast_lio mapping_mid360.launch
+
+rosbag info vln_1.bag
+rosbag play -l vln_1.bag

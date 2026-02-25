@@ -1,0 +1,8 @@
+prefix=/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package
+
+Name: yolo_detection_package
+Description: Description of yolo_detection_package
+Version: 0.0.0
+Cflags: -I/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/include
+Libs: -L${prefix}/lib 
+Requires: cv_bridge sensor_msgs std_msgs message_runtime geometry_msgs

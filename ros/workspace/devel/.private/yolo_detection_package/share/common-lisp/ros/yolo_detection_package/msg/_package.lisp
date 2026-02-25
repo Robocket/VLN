@@ -1,0 +1,13 @@
+(cl:defpackage yolo_detection_package-msg
+  (:use )
+  (:export
+   "<OBJECTCOORDINATE>"
+   "OBJECTCOORDINATE"
+   "<OBJECTCOORDINATES>"
+   "OBJECTCOORDINATES"
+   "<OBJECTDETECTION>"
+   "OBJECTDETECTION"
+   "<OBJECTDETECTIONS>"
+   "OBJECTDETECTIONS"
+  ))
+

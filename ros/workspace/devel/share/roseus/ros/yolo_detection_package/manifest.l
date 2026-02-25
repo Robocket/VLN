@@ -1,0 +1,1 @@
+/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/roseus/ros/yolo_detection_package/manifest.l
