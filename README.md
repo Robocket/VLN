@@ -1,16 +1,6 @@
 # 注意修改！
 
-node文件在~/vln/ros/workspace/src/yolo_detection_package
-
-将其中部分参数修改
-
-**\# 添加YOLOv5本地仓库路径，方便调用本地的yolo模型**
-
-line 23
-YOLOV5_REPO_PATH = "～/yolov5" **#改为你的yolo仓库**
-
-line 126
-self.weights_path = '/home/crl/yolov5/weights_download/yolov5s.pt' **#改为你的权重路径**
+quat = [q.x, q.y, q.z, q.w]# scipy要求(x,y,z,w)顺序
 
 
 
@@ -28,7 +18,8 @@ Python 3.9.23
 
 cd ~/vln/ros/workspace
 
-catkin_make 
+
+catkin build --cmake-args -DPYTHON_EXECUTABLE=/home/k325/miniconda3/envs/vln/bin/python3 #由于使用了虚拟环境所以编译时必须指定python解释器，用caktin_make会默认使用ros的python解释器
 
 source devel/setup.bash
 

@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectCoordinate.lisp"
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectCoordinates.lisp"
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectDetection.lisp"
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectDetections.lisp"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectCoordinate.lisp"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectCoordinates.lisp"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectDetection.lisp"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp/ros/yolo_detection_package/msg/ObjectDetections.lisp"
   "CMakeFiles/yolo_detection_package_generate_messages_lisp"
 )
 

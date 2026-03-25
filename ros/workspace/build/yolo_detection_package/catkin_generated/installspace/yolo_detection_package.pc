@@ -1,4 +1,4 @@
-prefix=/home/crl/vln/ros/workspace/install
+prefix=/home/k325/VLN/ros/workspace/install
 
 Name: yolo_detection_package
 Description: Description of yolo_detection_package

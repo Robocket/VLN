@@ -1,2 +1,2 @@
-set(yolo_detection_package_MESSAGE_FILES "/home/crl/vln/ros/workspace/src/yolo_detection_package/msg/ObjectDetection.msg;/home/crl/vln/ros/workspace/src/yolo_detection_package/msg/ObjectDetections.msg;/home/crl/vln/ros/workspace/src/yolo_detection_package/msg/ObjectCoordinate.msg;/home/crl/vln/ros/workspace/src/yolo_detection_package/msg/ObjectCoordinates.msg")
+set(yolo_detection_package_MESSAGE_FILES "/home/k325/VLN/ros/workspace/src/yolo_detection_package/msg/ObjectDetection.msg;/home/k325/VLN/ros/workspace/src/yolo_detection_package/msg/ObjectDetections.msg;/home/k325/VLN/ros/workspace/src/yolo_detection_package/msg/ObjectCoordinate.msg;/home/k325/VLN/ros/workspace/src/yolo_detection_package/msg/ObjectCoordinates.msg")
 set(yolo_detection_package_SERVICE_FILES "")

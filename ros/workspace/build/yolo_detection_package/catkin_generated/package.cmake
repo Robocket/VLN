@@ -1,6 +1,6 @@
 set(_CATKIN_CURRENT_PACKAGE "yolo_detection_package")
 set(yolo_detection_package_VERSION "0.0.0")
-set(yolo_detection_package_MAINTAINER "crl <crl@example.com>")
+set(yolo_detection_package_MAINTAINER "TODO <TODO@example.com>")
 set(yolo_detection_package_PACKAGE_FORMAT "2")
 set(yolo_detection_package_BUILD_DEPENDS "geometry_msgs" "message_generation" "cv_bridge" "sensor_msgs" "std_msgs" "rospy")
 set(yolo_detection_package_BUILD_EXPORT_DEPENDS "cv_bridge" "sensor_msgs" "std_msgs" "rospy")

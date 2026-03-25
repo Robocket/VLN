@@ -7,7 +7,10 @@
 # new environment variables
 
 # modified environment variables
-export CMAKE_PREFIX_PATH="/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package:$CMAKE_PREFIX_PATH"
-export PWD='/home/crl/vln/ros/workspace/build/yolo_detection_package'
-export ROSLISP_PACKAGE_DIRECTORIES="/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
-export ROS_PACKAGE_PATH="/home/crl/vln/ros/workspace/src/yolo_detection_package:$ROS_PACKAGE_PATH"
+export CMAKE_PREFIX_PATH="/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH="/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib/pkgconfig:$PKG_CONFIG_PATH"
+export PWD='/home/k325/VLN/ros/workspace/build/yolo_detection_package'
+export PYTHONPATH="/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib/python3/dist-packages:$PYTHONPATH"
+export ROSLISP_PACKAGE_DIRECTORIES="/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
+export ROS_PACKAGE_PATH="/home/k325/VLN/ros/workspace/src/yolo_detection_package:$ROS_PACKAGE_PATH"

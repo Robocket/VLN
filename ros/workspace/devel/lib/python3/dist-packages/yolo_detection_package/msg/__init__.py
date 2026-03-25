@@ -1,1 +1,1 @@
-/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/lib/python3/dist-packages/yolo_detection_package/msg/__init__.py
+/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib/python3/dist-packages/yolo_detection_package/msg/__init__.py

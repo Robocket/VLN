@@ -1,1 +1,1 @@
-/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/gennodejs/ros/yolo_detection_package/msg/ObjectCoordinates.js
+/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/gennodejs/ros/yolo_detection_package/msg/ObjectCoordinates.js

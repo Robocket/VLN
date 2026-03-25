@@ -1,6 +1,6 @@
 # 1. 导入torch库
 import torch
-
+import transformers
 # 2. 打印torch版本号（核心命令）
 print("PyTorch版本：", torch.__version__)
 
@@ -9,3 +9,5 @@ print("适配的CUDA版本：", torch.version.cuda)
 
 # 可选：检查CUDA是否可用（验证GPU环境）
 print("CUDA是否可用：", torch.cuda.is_available())
+
+print('transformers版本:', transformers.__version__)

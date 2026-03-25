@@ -2,7 +2,7 @@
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "/home/crl/vln/ros/workspace/install")
+  set(CMAKE_INSTALL_PREFIX "/home/k325/VLN/ros/workspace/install")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -39,7 +39,7 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/crl/vln/ros/workspace/build/yolo_detection_package/gtest/googlemock/cmake_install.cmake")
+  include("/home/k325/VLN/ros/workspace/build/yolo_detection_package/gtest/googlemock/cmake_install.cmake")
 
 endif()
 

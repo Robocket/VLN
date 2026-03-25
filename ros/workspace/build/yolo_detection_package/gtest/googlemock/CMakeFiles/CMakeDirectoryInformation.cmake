@@ -3,7 +3,7 @@
 
 # Relative path conversion top directories.
 set(CMAKE_RELATIVE_PATH_TOP_SOURCE "/usr/src/googletest")
-set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/crl/vln/ros/workspace/build/yolo_detection_package")
+set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/k325/VLN/ros/workspace/build/yolo_detection_package")
 
 # Force unix paths in dependencies.
 set(CMAKE_FORCE_UNIX_PATHS 1)

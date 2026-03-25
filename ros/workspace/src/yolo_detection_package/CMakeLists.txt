@@ -58,5 +58,6 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 catkin_install_python(PROGRAMS
   scripts/yolo_detection_node.py
+  scripts/vln_goal.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

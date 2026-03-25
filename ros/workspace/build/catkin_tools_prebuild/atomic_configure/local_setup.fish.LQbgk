@@ -5,7 +5,7 @@
 # or fall back to the destination set at configure time
 
 if test -z $_CATKIN_SETUP_DIR
-    set _CATKIN_SETUP_DIR /home/crl/vln/ros/workspace/devel/.private/catkin_tools_prebuild
+    set _CATKIN_SETUP_DIR /home/k325/VLN/ros/workspace/devel/.private/catkin_tools_prebuild
 end
 
 set CATKIN_SETUP_UTIL_ARGS "--extend --local"

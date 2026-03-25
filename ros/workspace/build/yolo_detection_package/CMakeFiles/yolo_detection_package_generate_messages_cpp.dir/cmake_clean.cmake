@@ -1,8 +1,8 @@
 file(REMOVE_RECURSE
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectCoordinate.h"
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectCoordinates.h"
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectDetection.h"
-  "/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectDetections.h"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectCoordinate.h"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectCoordinates.h"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectDetection.h"
+  "/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectDetections.h"
   "CMakeFiles/yolo_detection_package_generate_messages_cpp"
 )
 

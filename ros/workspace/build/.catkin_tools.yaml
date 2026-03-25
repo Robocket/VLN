@@ -1,6 +1,6 @@
-devel_space: /home/crl/vln/ros/workspace/devel
+devel_space: /home/k325/VLN/ros/workspace/devel
 install: false
-install_space: /home/crl/vln/ros/workspace/install
+install_space: /home/k325/VLN/ros/workspace/install
 profile: default
-source_space: /home/crl/vln/ros/workspace/src
-workspace: /home/crl/vln/ros/workspace
+source_space: /home/k325/VLN/ros/workspace/src
+workspace: /home/k325/VLN/ros/workspace

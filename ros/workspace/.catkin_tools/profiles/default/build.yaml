@@ -3,7 +3,7 @@ blacklist: []
 build_space: build
 catkin_make_args: []
 cmake_args:
-- -DPYTHON_EXECUTABLE=/home/crl/miniconda3/envs/vln_env/bin/python3
+- -DPYTHON_EXECUTABLE=/home/k325/miniconda3/envs/vln/bin/python3
 devel_layout: linked
 devel_space: devel
 extend_path: null

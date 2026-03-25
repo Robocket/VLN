@@ -1,4 +1,4 @@
-prefix=/home/crl/vln/ros/workspace/devel/.private/catkin_tools_prebuild
+prefix=/home/k325/VLN/ros/workspace/devel/.private/catkin_tools_prebuild
 
 Name: catkin_tools_prebuild
 Description: Description of catkin_tools_prebuild

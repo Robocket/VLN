@@ -1,1 +1,1 @@
-/home/crl/vln/ros/workspace/devel/.private/yolo_detection_package/share/yolo_detection_package/cmake/yolo_detection_packageConfig-version.cmake
+/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/yolo_detection_package/cmake/yolo_detection_packageConfig-version.cmake
