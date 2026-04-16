@@ -33,9 +33,17 @@ Not searching for unused variables given on the command line.
 [36m--[0m catkin 0.8.12
 [36m--[0m BUILD_SHARED_LIBS is on
 [36m--[0m Using these message generators: gencpp;geneus;genlisp;gennodejs;genpy
-[36m--[0m yolo_detection_package: 4 messages, 0 services
-[36m--[0m Installing devel-space wrapper /home/k325/VLN/ros/workspace/src/yolo_detection_package/scripts/yolo_detection_node.py to /home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib/yolo_detection_package
-[36m--[0m Installing devel-space wrapper /home/k325/VLN/ros/workspace/src/yolo_detection_package/scripts/vln_goal.py to /home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib/yolo_detection_package
-[36m--[0m Configuring done
-[36m--[0m Generating done
-[36m--[0m Build files have been written to: /home/k325/VLN/ros/workspace/build/yolo_detection_package
+[36m--[0m VLN_planner: 4 messages, 0 services
+[31m[1mCMake Error[0m at /opt/ros/noetic/share/catkin/cmake/catkin_package_xml.cmake:54 (message):
+  catkin_package_xml() package name 'yolo_detection_package' in
+  '/home/k325/VLN/ros/workspace/src/VLN_planner/package.xml' does not match
+  current PROJECT_NAME 'VLN_planner'.  You must call project() with the same
+  package name before.
+[36mCall Stack (most recent call first):[0m
+  /opt/ros/noetic/share/catkin/cmake/catkin_package.cmake:99 (catkin_package_xml)
+  CMakeLists.txt:40 (catkin_package)
+
+
+[36m--[0m Configuring incomplete, errors occurred!
+See also "/home/k325/VLN/ros/workspace/build/yolo_detection_package/CMakeFiles/CMakeOutput.log".
+See also "/home/k325/VLN/ros/workspace/build/yolo_detection_package/CMakeFiles/CMakeError.log".

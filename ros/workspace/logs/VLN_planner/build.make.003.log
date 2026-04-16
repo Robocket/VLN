@@ -1,0 +1,53 @@
+[  0%] Built target geometry_msgs_generate_messages_cpp
+[35m[1mScanning dependencies of target a_star_planner_node[0m
+[  0%] Built target std_msgs_generate_messages_cpp
+[  0%] Built target std_msgs_generate_messages_nodejs
+[  0%] Built target std_msgs_generate_messages_py
+[  0%] Built target geometry_msgs_generate_messages_py
+[  0%] Built target sensor_msgs_generate_messages_cpp
+[  0%] Built target sensor_msgs_generate_messages_nodejs
+[  0%] Built target sensor_msgs_generate_messages_py
+[  0%] Built target geometry_msgs_generate_messages_lisp
+[  0%] Built target geometry_msgs_generate_messages_nodejs
+[  0%] Built target sensor_msgs_generate_messages_lisp
+[  0%] Built target std_msgs_generate_messages_lisp
+[  0%] Built target geometry_msgs_generate_messages_eus
+[  0%] Built target sensor_msgs_generate_messages_eus
+[  0%] Built target std_msgs_generate_messages_eus
+[  4%] [32mBuilding CXX object CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o[0m
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectDetection
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectDetections
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectCoordinate
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectCoordinates
+[ 37%] Built target VLN_planner_generate_messages_cpp
+[ 41%] Built target VLN_planner_generate_messages_py
+[ 58%] Built target VLN_planner_generate_messages_nodejs
+[ 75%] Built target VLN_planner_generate_messages_lisp
+[ 95%] Built target VLN_planner_generate_messages_eus
+[ 95%] Built target VLN_planner_generate_messages
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In function ‘[01m[Kstd::vector<Node*> aStarSearch(Node*, Node*)[m[K’:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:61:[m[K [01;31m[Kerror: [m[K‘[01m[Kcmp[m[K’ was not declared in this scope; did you mean ‘[01m[Kbcmp[m[K’?
+   95 |     std::priority_queue<Node*, std::vector<Node*>, decltype([01;31m[Kcmp[m[K)> open_list(cmp);
+      |                                                             [01;31m[K^~~[m[K
+      |                                                             [32m[Kbcmp[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:65:[m[K [01;31m[Kerror: [m[Ktemplate argument 3 is invalid
+   95 |     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)[01;31m[K>[m[K open_list(cmp);
+      |                                                                 [01;31m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:100:15:[m[K [01;31m[Kerror: [m[Krequest for member ‘[01m[Kpush[m[K’ in ‘[01m[Kopen_list[m[K’, which is of non-class type ‘[01m[Kint[m[K’
+  100 |     open_list.[01;31m[Kpush[m[K(start);
+      |               [01;31m[K^~~~[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:106:23:[m[K [01;31m[Kerror: [m[Krequest for member ‘[01m[Kempty[m[K’ in ‘[01m[Kopen_list[m[K’, which is of non-class type ‘[01m[Kint[m[K’
+  106 |     while (!open_list.[01;31m[Kempty[m[K()) {
+      |                       [01;31m[K^~~~~[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:107:35:[m[K [01;31m[Kerror: [m[Krequest for member ‘[01m[Ktop[m[K’ in ‘[01m[Kopen_list[m[K’, which is of non-class type ‘[01m[Kint[m[K’
+  107 |         Node* current = open_list.[01;31m[Ktop[m[K();
+      |                                   [01;31m[K^~~[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:108:19:[m[K [01;31m[Kerror: [m[Krequest for member ‘[01m[Kpop[m[K’ in ‘[01m[Kopen_list[m[K’, which is of non-class type ‘[01m[Kint[m[K’
+  108 |         open_list.[01;31m[Kpop[m[K();
+      |                   [01;31m[K^~~[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:140:27:[m[K [01;31m[Kerror: [m[Krequest for member ‘[01m[Kpush[m[K’ in ‘[01m[Kopen_list[m[K’, which is of non-class type ‘[01m[Kint[m[K’
+  140 |                 open_list.[01;31m[Kpush[m[K(neighbor);
+      |                           [01;31m[K^~~~[m[K
+make[2]: *** [CMakeFiles/a_star_planner_node.dir/build.make:63：CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o] 错误 1
+make[1]: *** [CMakeFiles/Makefile2:2757：CMakeFiles/a_star_planner_node.dir/all] 错误 2
+make: *** [Makefile:141：all] 错误 2

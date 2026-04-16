@@ -1,1 +1,0 @@
-/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/share/roseus/ros/yolo_detection_package/msg/ObjectDetection.l

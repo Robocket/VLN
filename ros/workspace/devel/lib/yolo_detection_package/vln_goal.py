@@ -1,1 +1,0 @@
-/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/lib/yolo_detection_package/vln_goal.py

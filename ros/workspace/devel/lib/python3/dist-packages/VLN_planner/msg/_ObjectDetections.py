@@ -1,0 +1,1 @@
+/home/k325/VLN/ros/workspace/devel/.private/VLN_planner/lib/python3/dist-packages/VLN_planner/msg/_ObjectDetections.py

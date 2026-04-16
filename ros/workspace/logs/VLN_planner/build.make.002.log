@@ -1,0 +1,56 @@
+[35m[1mScanning dependencies of target a_star_planner_node[0m
+[  0%] Built target std_msgs_generate_messages_cpp
+[  0%] Built target geometry_msgs_generate_messages_nodejs
+[  0%] Built target geometry_msgs_generate_messages_cpp
+[  0%] Built target sensor_msgs_generate_messages_cpp
+[  0%] Built target sensor_msgs_generate_messages_eus
+[  0%] Built target geometry_msgs_generate_messages_py
+[  0%] Built target std_msgs_generate_messages_nodejs
+[  0%] Built target geometry_msgs_generate_messages_lisp
+[  0%] Built target sensor_msgs_generate_messages_py
+[  0%] Built target std_msgs_generate_messages_py
+[  0%] Built target geometry_msgs_generate_messages_eus
+[  0%] Built target sensor_msgs_generate_messages_nodejs
+[  0%] Built target std_msgs_generate_messages_lisp
+[  0%] Built target std_msgs_generate_messages_eus
+[  0%] Built target sensor_msgs_generate_messages_lisp
+[  4%] [32mBuilding CXX object CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o[0m
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectDetections
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectCoordinates
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectDetection
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectCoordinate
+[ 54%] Built target VLN_planner_generate_messages_lisp
+[ 58%] Built target VLN_planner_generate_messages_nodejs
+[ 58%] Built target VLN_planner_generate_messages_py
+[ 75%] Built target VLN_planner_generate_messages_cpp
+[ 95%] Built target VLN_planner_generate_messages_eus
+[ 95%] Built target VLN_planner_generate_messages
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In function ‘[01m[Kstd::vector<Node*> aStarSearch(Node*, Node*)[m[K’:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:26:[m[K [01;31m[Kerror: [m[Kfound ‘[01m[K:[m[K’ in nested-name-specifier, expected ‘[01m[K::[m[K’
+   95 |     auto cmp = [](sslocal[01;31m[K:[m[K//flow/file_open?url=Node%2A+a%2C+Node%2A+b&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=) { return a->f > b->f; };
+      |                          [01;31m[K^[m[K
+      |                          [32m[K::[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:19:[m[K [01;31m[Kerror: [m[K‘[01m[Ksslocal[m[K’ has not been declared
+   95 |     auto cmp = []([01;31m[Ksslocal[m[K://flow/file_open?url=Node%2A+a%2C+Node%2A+b&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=) { return a->f > b->f; };
+      |                   [01;31m[K^~~~~~~[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:96:24:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K,[m[K’ or ‘[01m[K...[m[K’ before ‘[01m[K<[m[K’ token
+   96 |     std::priority_queue[01;31m[K<[m[KNode*, std::vector<Node*>, decltype(cmp)> open_list(cmp);
+      |                        [01;31m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:96:81:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K)[m[K’ before ‘[01m[K;[m[K’ token
+   96 |     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> open_list(cmp)[01;31m[K;[m[K
+      |                                                                                 [01;31m[K^[m[K
+      |                                                                                 [32m[K)[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:18:[m[K [01;36m[Knote: [m[Kto match this ‘[01m[K([m[K’
+   95 |     auto cmp = [][01;36m[K([m[Ksslocal://flow/file_open?url=Node%2A+a%2C+Node%2A+b&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=) { return a->f > b->f; };
+      |                  [01;36m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In lambda function:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:96:81:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K{[m[K’ before ‘[01m[K;[m[K’ token
+   96 |     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> open_list(cmp)[01;31m[K;[m[K
+      |                                                                                 [01;31m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In function ‘[01m[Kstd::vector<Node*> aStarSearch(Node*, Node*)[m[K’:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:101:5:[m[K [01;31m[Kerror: [m[K‘[01m[Kopen_list[m[K’ was not declared in this scope
+  101 |     [01;31m[Kopen_list[m[K.push(start);
+      |     [01;31m[K^~~~~~~~~[m[K
+make[2]: *** [CMakeFiles/a_star_planner_node.dir/build.make:63：CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o] 错误 1
+make[1]: *** [CMakeFiles/Makefile2:2757：CMakeFiles/a_star_planner_node.dir/all] 错误 2
+make: *** [Makefile:141：all] 错误 2

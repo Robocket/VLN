@@ -1,0 +1,8 @@
+prefix=/home/k325/VLN/ros/workspace/devel/.private/VLN_planner
+
+Name: VLN_planner
+Description: Description of VLN_planner
+Version: 0.0.0
+Cflags: -I/home/k325/VLN/ros/workspace/devel/.private/VLN_planner/include
+Libs: -L${prefix}/lib 
+Requires: cv_bridge sensor_msgs std_msgs message_runtime geometry_msgs

@@ -1,0 +1,29 @@
+[  0%] Built target sensor_msgs_generate_messages_lisp
+[  0%] Built target std_msgs_generate_messages_eus
+[  0%] Built target std_msgs_generate_messages_nodejs
+[  0%] Built target geometry_msgs_generate_messages_cpp
+[  0%] Built target geometry_msgs_generate_messages_nodejs
+[  0%] Built target sensor_msgs_generate_messages_cpp
+[  0%] Built target std_msgs_generate_messages_lisp
+[  0%] Built target geometry_msgs_generate_messages_py
+[  0%] Built target std_msgs_generate_messages_cpp
+[  0%] Built target sensor_msgs_generate_messages_py
+[  0%] Built target std_msgs_generate_messages_py
+[  0%] Built target sensor_msgs_generate_messages_nodejs
+[  0%] Built target geometry_msgs_generate_messages_lisp
+[  0%] Built target sensor_msgs_generate_messages_eus
+[  0%] Built target geometry_msgs_generate_messages_eus
+[35m[1mScanning dependencies of target a_star_planner_node[0m
+[  0%] Built target _VLN_planner_generate_messages_check_deps_ObjectCoordinates
+[  0%] Built target _VLN_planner_generate_messages_check_deps_ObjectDetection
+[  0%] Built target _VLN_planner_generate_messages_check_deps_ObjectCoordinate
+[  4%] [32mBuilding CXX object CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o[0m
+[  4%] Built target _VLN_planner_generate_messages_check_deps_ObjectDetections
+[ 37%] Built target VLN_planner_generate_messages_cpp
+[ 41%] Built target VLN_planner_generate_messages_py
+[ 58%] Built target VLN_planner_generate_messages_nodejs
+[ 75%] Built target VLN_planner_generate_messages_lisp
+[ 95%] Built target VLN_planner_generate_messages_eus
+[ 95%] Built target VLN_planner_generate_messages
+[100%] [32m[1mLinking CXX executable /home/k325/VLN/ros/workspace/devel/.private/VLN_planner/lib/VLN_planner/a_star_planner_node[0m
+[100%] Built target a_star_planner_node

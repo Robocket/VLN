@@ -1,0 +1,1 @@
+/home/k325/VLN/ros/workspace/devel/.private/VLN_planner/share/gennodejs/ros/VLN_planner/_index.js

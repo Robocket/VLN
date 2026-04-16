@@ -1,0 +1,7 @@
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In function ‘[01m[Kvoid cloudCallback(const ConstPtr&)[m[K’:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:82:21:[m[K [01;31m[Kerror: [m[K‘[01m[Kcloud[m[K’ was not declared in this scope
+   82 |     for (auto &pt : [01;31m[Kcloud[m[K->points) {
+      |                     [01;31m[K^~~~~[m[K
+make[2]: *** [CMakeFiles/a_star_planner_node.dir/build.make:63：CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o] 错误 1
+make[1]: *** [CMakeFiles/Makefile2:2757：CMakeFiles/a_star_planner_node.dir/all] 错误 2
+make: *** [Makefile:141：all] 错误 2

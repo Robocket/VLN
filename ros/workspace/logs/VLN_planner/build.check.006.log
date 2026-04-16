@@ -1,0 +1,25 @@
+[36m--[0m Using CATKIN_DEVEL_PREFIX: /home/k325/VLN/ros/workspace/devel/.private/VLN_planner
+[36m--[0m Using CMAKE_PREFIX_PATH: /home/k325/VLN/ros/workspace/devel;/opt/ros/noetic
+[36m--[0m This workspace overlays: /home/k325/VLN/ros/workspace/devel;/opt/ros/noetic
+[36m--[0m Found PythonInterp: /home/k325/miniconda3/envs/vln/bin/python3 (found suitable version "3.8.20", minimum required is "3")
+[36m--[0m Using PYTHON_EXECUTABLE: /home/k325/miniconda3/envs/vln/bin/python3
+[36m--[0m Using Debian Python package layout
+[36m--[0m Using empy: /home/k325/miniconda3/envs/vln/lib/python3.8/site-packages/em.py
+[36m--[0m Using CATKIN_ENABLE_TESTING: ON
+[36m--[0m Call enable_testing()
+[36m--[0m Using CATKIN_TEST_RESULTS_DIR: /home/k325/VLN/ros/workspace/build/VLN_planner/test_results
+[36m--[0m Forcing gtest/gmock from source, though one was otherwise available.
+[36m--[0m Found gtest sources under '/usr/src/googletest': gtests will be built
+[36m--[0m Found gmock sources under '/usr/src/googletest': gmock will be built
+[36m--[0m Found PythonInterp: /home/k325/miniconda3/envs/vln/bin/python3 (found version "3.8.20")
+[36m--[0m Using Python nosetests: /usr/bin/nosetests3
+[36m--[0m catkin 0.8.12
+[36m--[0m BUILD_SHARED_LIBS is on
+[36m--[0m Using these message generators: gencpp;geneus;genlisp;gennodejs;genpy
+[36m--[0m VLN_planner: 4 messages, 0 services
+[33mWARNING: Package name "VLN_planner" does not follow the naming conventions. It should start with a lower case letter and only contain lower case letters, digits, underscores, and dashes.[0m
+[36m--[0m Installing devel-space wrapper /home/k325/VLN/ros/workspace/src/VLN_planner/scripts/yolo_detection_node.py to /home/k325/VLN/ros/workspace/devel/.private/VLN_planner/lib/VLN_planner
+[36m--[0m Installing devel-space wrapper /home/k325/VLN/ros/workspace/src/VLN_planner/scripts/vln_goal.py to /home/k325/VLN/ros/workspace/devel/.private/VLN_planner/lib/VLN_planner
+[36m--[0m Configuring done
+[36m--[0m Generating done
+[36m--[0m Build files have been written to: /home/k325/VLN/ros/workspace/build/VLN_planner

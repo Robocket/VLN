@@ -1,0 +1,13 @@
+(cl:defpackage VLN_planner-msg
+  (:use )
+  (:export
+   "<OBJECTCOORDINATE>"
+   "OBJECTCOORDINATE"
+   "<OBJECTCOORDINATES>"
+   "OBJECTCOORDINATES"
+   "<OBJECTDETECTION>"
+   "OBJECTDETECTION"
+   "<OBJECTDETECTIONS>"
+   "OBJECTDETECTIONS"
+  ))
+

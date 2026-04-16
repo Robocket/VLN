@@ -1,0 +1,34 @@
+WARNING: Package name "VLN_planner" does not follow the naming conventions. It should start with a lower case letter and only contain lower case letters, digits, underscores, and dashes.
+WARNING: Package name "VLN_planner" does not follow the naming conventions. It should start with a lower case letter and only contain lower case letters, digits, underscores, and dashes.
+WARNING: Package name "VLN_planner" does not follow the naming conventions. It should start with a lower case letter and only contain lower case letters, digits, underscores, and dashes.
+WARNING: Package name "VLN_planner" does not follow the naming conventions. It should start with a lower case letter and only contain lower case letters, digits, underscores, and dashes.
+WARNING: Package name "VLN_planner" does not follow the naming conventions. It should start with a lower case letter and only contain lower case letters, digits, underscores, and dashes.
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In function ‘[01m[Kstd::vector<Node*> aStarSearch(Node*, Node*)[m[K’:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:94:26:[m[K [01;31m[Kerror: [m[Kfound ‘[01m[K:[m[K’ in nested-name-specifier, expected ‘[01m[K::[m[K’
+   94 |     auto cmp = [](sslocal[01;31m[K:[m[K//flow/file_open?url=Node%2A+a%2C+Node%2A+b&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=) { return a->f > b->f; };
+      |                          [01;31m[K^[m[K
+      |                          [32m[K::[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:94:19:[m[K [01;31m[Kerror: [m[K‘[01m[Ksslocal[m[K’ has not been declared
+   94 |     auto cmp = []([01;31m[Ksslocal[m[K://flow/file_open?url=Node%2A+a%2C+Node%2A+b&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=) { return a->f > b->f; };
+      |                   [01;31m[K^~~~~~~[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:24:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K,[m[K’ or ‘[01m[K...[m[K’ before ‘[01m[K<[m[K’ token
+   95 |     std::priority_queue[01;31m[K<[m[KNode*, std::vector<Node*>, decltype(cmp)> open_list(cmp);
+      |                        [01;31m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:81:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K)[m[K’ before ‘[01m[K;[m[K’ token
+   95 |     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> open_list(cmp)[01;31m[K;[m[K
+      |                                                                                 [01;31m[K^[m[K
+      |                                                                                 [32m[K)[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:94:18:[m[K [01;36m[Knote: [m[Kto match this ‘[01m[K([m[K’
+   94 |     auto cmp = [][01;36m[K([m[Ksslocal://flow/file_open?url=Node%2A+a%2C+Node%2A+b&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=) { return a->f > b->f; };
+      |                  [01;36m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In lambda function:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:95:81:[m[K [01;31m[Kerror: [m[Kexpected ‘[01m[K{[m[K’ before ‘[01m[K;[m[K’ token
+   95 |     std::priority_queue<Node*, std::vector<Node*>, decltype(cmp)> open_list(cmp)[01;31m[K;[m[K
+      |                                                                                 [01;31m[K^[m[K
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:[m[K In function ‘[01m[Kstd::vector<Node*> aStarSearch(Node*, Node*)[m[K’:
+[01m[K/home/k325/VLN/ros/workspace/src/VLN_planner/src/a_star_planner.cpp:100:5:[m[K [01;31m[Kerror: [m[K‘[01m[Kopen_list[m[K’ was not declared in this scope
+  100 |     [01;31m[Kopen_list[m[K.push(start);
+      |     [01;31m[K^~~~~~~~~[m[K
+make[2]: *** [CMakeFiles/a_star_planner_node.dir/build.make:63：CMakeFiles/a_star_planner_node.dir/src/a_star_planner.cpp.o] 错误 1
+make[1]: *** [CMakeFiles/Makefile2:2757：CMakeFiles/a_star_planner_node.dir/all] 错误 2
+make: *** [Makefile:141：all] 错误 2

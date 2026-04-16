@@ -1,1 +1,0 @@
-/home/k325/VLN/ros/workspace/devel/.private/yolo_detection_package/include/yolo_detection_package/ObjectDetection.h
