@@ -1,0 +1,1 @@
+/home/k325/VLN/ros/workspace/devel/.private/vln_planner/lib/python3/dist-packages/vln_planner/msg/_ObjectCoordinates.py

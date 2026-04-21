@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/k325/VLN/ros/workspace/devel/.private/vln_planner/setup.sh

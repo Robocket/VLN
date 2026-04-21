@@ -1,0 +1,1 @@
+/home/k325/VLN/ros/workspace/devel/.private/vln_planner/share/roseus/ros/vln_planner/msg/ObjectDetection.l

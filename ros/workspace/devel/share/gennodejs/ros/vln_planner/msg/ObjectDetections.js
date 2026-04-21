@@ -1,0 +1,1 @@
+/home/k325/VLN/ros/workspace/devel/.private/vln_planner/share/gennodejs/ros/vln_planner/msg/ObjectDetections.js

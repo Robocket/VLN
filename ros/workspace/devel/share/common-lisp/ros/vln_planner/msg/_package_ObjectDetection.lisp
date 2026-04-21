@@ -1,0 +1,1 @@
+/home/k325/VLN/ros/workspace/devel/.private/vln_planner/share/common-lisp/ros/vln_planner/msg/_package_ObjectDetection.lisp

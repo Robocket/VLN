@@ -1,0 +1,26 @@
+[  0%] Built target sensor_msgs_generate_messages_eus
+[  0%] Built target geometry_msgs_generate_messages_eus
+[  0%] Built target std_msgs_generate_messages_cpp
+[  0%] Built target sensor_msgs_generate_messages_lisp
+[  0%] Built target geometry_msgs_generate_messages_cpp
+[  0%] Built target sensor_msgs_generate_messages_py
+[  0%] Built target sensor_msgs_generate_messages_cpp
+[  0%] Built target std_msgs_generate_messages_eus
+[  0%] Built target geometry_msgs_generate_messages_nodejs
+[  0%] Built target sensor_msgs_generate_messages_nodejs
+[  0%] Built target std_msgs_generate_messages_lisp
+[  0%] Built target std_msgs_generate_messages_py
+[  0%] Built target geometry_msgs_generate_messages_lisp
+[  0%] Built target std_msgs_generate_messages_nodejs
+[  0%] Built target geometry_msgs_generate_messages_py
+[  8%] Built target a_star_planner_node
+[  8%] Built target _vln_planner_generate_messages_check_deps_ObjectDetections
+[  8%] Built target _vln_planner_generate_messages_check_deps_ObjectCoordinates
+[  8%] Built target _vln_planner_generate_messages_check_deps_ObjectCoordinate
+[  8%] Built target _vln_planner_generate_messages_check_deps_ObjectDetection
+[ 79%] Built target vln_planner_generate_messages_eus
+[ 79%] Built target vln_planner_generate_messages_lisp
+[ 79%] Built target vln_planner_generate_messages_cpp
+[ 83%] Built target vln_planner_generate_messages_py
+[100%] Built target vln_planner_generate_messages_nodejs
+[100%] Built target vln_planner_generate_messages

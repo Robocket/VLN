@@ -1,0 +1,35 @@
+<launch>
+    <!-- <node 
+        name="yolo_detection_node"        
+        pkg="vln_planner"     
+        type="yolo_detection_node.py"    
+        output="screen"                  
+        respawn="true"
+        args="$(find vln_planner)/scripts/yolo_detection_node.py">               
+        <param name="confidence_threshold" value="0.5" type="double"/>
+    </node> -->
+    <node 
+        name="object_marker"        
+        pkg="vln_planner"     
+        type="object_marker.py"    
+        output="screen"                  
+        respawn="true">
+        <param name="use_subscriber" value="True" />            
+    </node>
+    <node 
+        name="nav_node"        
+        pkg="vln_planner"     
+        type="vln_goal.py"    
+        output="screen"                  
+        respawn="true"
+        args="$(find vln_planner)/scripts/vln_goal.py">           
+    </node>
+    <!-- <node 
+        name="a_star_planner"        
+        pkg="vln_planner"     
+        type="a_star_planner"    
+        output="screen"                  
+        respawn="true"
+        args="$(find vln_planner)/src/a_star_planner.cpp">           
+    </node> -->
+</launch>
