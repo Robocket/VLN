@@ -1,6 +1,6 @@
 """Exercise real DDS, generated messages and the compiled planner without model weights.
 
-Run after building and sourcing ros2/install/setup.bash.
+Run after building and sourcing install/setup.bash.
 Only the neural-network backend is replaced by a deterministic detection.
 """
 

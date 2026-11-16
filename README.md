@@ -4,7 +4,7 @@
 运行环境为 **Ubuntu 24.04 / ROS 2 Jazzy / Python 3.12**。
 
 ```text
-ros2/src/
+src/
   vln_interfaces/      四种自定义消息
   vln_perception/      YOLOv5 检测、深度投影、物体坐标与 Marker
   vln_navigation/      指令话题、可选 GGUF 目标选择、终端指令入口
@@ -16,6 +16,7 @@ tests/                ROS 2 跨节点集成测试
 docs/                 ROS 2 配置和运行说明
 ```
 
+仓库根目录即 colcon 工作空间，源码位于 `src/`，构建输出为根目录的 `build/`、`install/` 和 `log/`。
 构建目录、模型、录包和本地 `publish/` 论文资料由 `.gitignore` 排除。
 
 ## 构建 ROS 2
@@ -24,8 +25,7 @@ docs/                 ROS 2 配置和运行说明
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-rosdep install --from-paths ros2/src --ignore-src --rosdistro jazzy -r -y
-cd ros2
+rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
 colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3
 source install/setup.bash
 ```
@@ -38,10 +38,10 @@ ROS 依赖由 `package.xml` 管理。YOLOv5 仓库、权重、PyTorch 和可选
 在仓库根目录复制参数文件，并填入本机模型路径和传感器参数：
 
 ```bash
-cp ros2/src/vln_bringup/config/vln.yaml /tmp/vln.local.yaml
+cp src/vln_bringup/config/vln.yaml /tmp/vln.local.yaml
 # 编辑 /tmp/vln.local.yaml 的 yolov5_repo、weights_path、坐标系和相机外参
 source /opt/ros/jazzy/setup.bash
-source ros2/install/setup.bash
+source install/setup.bash
 ros2 launch vln_bringup vln.launch.py params_file:=/tmp/vln.local.yaml
 ```
 
@@ -74,11 +74,9 @@ ros2 launch vln_bringup vln.launch.py enable_perception:=false
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-cd ros2
+source install/setup.bash
 colcon test --event-handlers console_direct+ --return-code-on-test-failure
 colcon test-result --verbose
-cd ..
-source ros2/install/setup.bash
 ROS_DOMAIN_ID=87 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST /usr/bin/python3 -m pytest -q tests/test_ros2_pipeline.py
 ```
 

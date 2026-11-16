@@ -16,10 +16,9 @@ jobs:
           apt-get update
           apt-get install -y python3-colcon-common-extensions python3-pytest
           rosdep update
-          rosdep install --from-paths ros2/src --ignore-src --rosdistro jazzy -r -y
+          rosdep install --from-paths src --ignore-src --rosdistro jazzy -r -y
       - name: Build
         shell: bash
-        working-directory: ros2
         run: |
           source /opt/ros/jazzy/setup.bash
           colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=/usr/bin/python3
@@ -30,9 +29,7 @@ jobs:
           ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
         run: |
           source /opt/ros/jazzy/setup.bash
-          source ros2/install/setup.bash
-          cd ros2
+          source install/setup.bash
           colcon test --event-handlers console_direct+ --return-code-on-test-failure
           colcon test-result --verbose
-          cd ..
           /usr/bin/python3 -m pytest -q tests/test_ros2_pipeline.py

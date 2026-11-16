@@ -35,7 +35,6 @@ python -m pip install llama-cpp-python
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-cd ros2
 python -m colcon build --symlink-install --packages-select vln_perception vln_navigation
 source install/setup.bash
 ```
