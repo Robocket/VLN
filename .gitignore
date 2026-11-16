@@ -1,10 +1,7 @@
-# ROS workspaces
+# ROS 2 workspace outputs
 **/build/
-**/devel/
 **/install/
 **/log/
-**/logs/
-**/.catkin_tools/
 
 # Python and local environments
 __pycache__/

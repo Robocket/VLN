@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vln_bringup</name>
+  <version>0.1.0</version>
+  <description>vln bringup for ROS 2.</description>
+  <maintainer email="TODO@example.com">TODO</maintainer>
+  <license>TODO</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>vln_perception</exec_depend>
+  <exec_depend>vln_navigation</exec_depend>
+  <exec_depend>vln_planner</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>sensor_msgs_py</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>
