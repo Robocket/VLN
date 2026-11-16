@@ -5,17 +5,18 @@
 
 ```text
 src/
-  vln_interfaces/      四种自定义消息
-  vln_perception/      YOLOv5 检测、深度投影、物体坐标与 Marker
-  vln_navigation/      指令话题、可选 GGUF 目标选择、终端指令入口
-  vln_planner/         C++ A* 点云栅格规划
-  vln_bringup/         launch、参数和 RViz 2 配置
+  interfaces/      四种自定义消息
+  perception/      YOLOv5 检测、深度投影、物体坐标与 Marker
+  navigation/      指令话题、可选 GGUF 目标选择、终端指令入口
+  planner/         C++ A* 点云栅格规划
+  bringup/         launch、参数和 RViz 2 配置
 examples/              摄像头预览、YOLO + ORB 实验
 tools/                PyTorch / Transformers 环境检查
 tests/                ROS 2 跨节点集成测试
 docs/                 ROS 2 配置和运行说明
 ```
 
+源码目录使用简短名称，ROS 包名仍为 `vln_interfaces`、`vln_perception` 等。
 仓库根目录即 colcon 工作空间，源码位于 `src/`，构建输出为根目录的 `build/`、`install/` 和 `log/`。
 构建目录、模型、录包和本地 `publish/` 论文资料由 `.gitignore` 排除。
 
@@ -38,7 +39,7 @@ ROS 依赖由 `package.xml` 管理。YOLOv5 仓库、权重、PyTorch 和可选
 在仓库根目录复制参数文件，并填入本机模型路径和传感器参数：
 
 ```bash
-cp src/vln_bringup/config/vln.yaml /tmp/vln.local.yaml
+cp src/bringup/config/vln.yaml /tmp/vln.local.yaml
 # 编辑 /tmp/vln.local.yaml 的 yolov5_repo、weights_path、坐标系和相机外参
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
