@@ -1,6 +1,0 @@
-devel_space: /home/k325/VLN/ros/workspace/devel
-install: false
-install_space: /home/k325/VLN/ros/workspace/install
-profile: default
-source_space: /home/k325/VLN/ros/workspace/src
-workspace: /home/k325/VLN/ros/workspace

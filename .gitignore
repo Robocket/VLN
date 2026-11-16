@@ -1,0 +1,30 @@
+# ROS workspaces
+**/build/
+**/devel/
+**/install/
+**/log/
+**/logs/
+**/.catkin_tools/
+
+# Python and local environments
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+.vscode/
+.idea/
+*.local.yaml
+
+# Local datasets, weights, recordings and publication materials
+*.pt
+*.pth
+*.onnx
+*.gguf
+*.bag
+*.db3
+*.mcap
+/models/
+/datasets/
+/publish/

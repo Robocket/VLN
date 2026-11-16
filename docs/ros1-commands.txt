@@ -1,0 +1,1 @@
+rosbag record -O vln.bag /Odometry /camera/color/image_raw /camera/depth/image_rect_raw /camera/depth/image_rect_raw /cloud_registered /object/absolute_coords_list /cloud_registered_body /livox/imu /livox/lidar /rosout /tf /tf_static

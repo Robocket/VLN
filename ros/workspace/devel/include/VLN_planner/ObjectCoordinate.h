@@ -1,1 +1,0 @@
-/home/k325/VLN/ros/workspace/devel/.private/VLN_planner/include/VLN_planner/ObjectCoordinate.h
