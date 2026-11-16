@@ -7,8 +7,6 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ObjectCoordinate.msg"
   "msg/ObjectCoordinates.msg"
-  "msg/ObjectDetection.msg"
-  "msg/ObjectDetections.msg"
   DEPENDENCIES std_msgs geometry_msgs
 )
 ament_export_dependencies(rosidl_default_runtime)

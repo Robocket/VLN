@@ -3,28 +3,43 @@
     frame_id: world
     odom_topic: /Odometry
 
-yolo_detection_node:
+streaming_semantic_node:
   ros__parameters:
-    # Set these in a local copy; models and third-party repositories stay outside Git.
-    yolov5_repo: ''
-    weights_path: ''
-    device: cpu
-    confidence_threshold: 0.5
-    iou_threshold: 0.5
+    robot_agent_root: /home/crl/DDD/EGI/robot-agent
+    onestreamer_config: configs/onestreamer-fast.json
+    # Empty paths resolve existing assets in robot-agent or its parent EGI workspace.
+    worker_python: ''
+    model_path: ''
+    # Keep the reference 8-token proactive response; ground the trigger frame separately.
+    grounding_max_new_tokens: 256
+    startup_timeout: 120.0
     color_topic: /camera/color/image_raw
-    depth_topic: /camera/aligned_depth_to_color/image_raw
     camera_info_topic: /camera/color/camera_info
-    processing_rate: 15.0
-    sync_tolerance: 0.01
-    max_pose_age: 0.2
-    # Fallback intrinsics, replaced by CameraInfo when received.
+    cloud_topic: /cloud_registered
+    # tf: calibrated world->optical transform at the image timestamp.
+    # odometry: use odometry plus the camera-to-body extrinsics below.
+    transform_mode: odometry
+    sync_tolerance: 0.15
+    image_rectified: false
+    image_width: 640
+    image_height: 480
+    # Fallback calibration, superseded by matching CameraInfo.
     fx: 385.45
     fy: 385.45
     cx: 320.0
     cy: 240.0
-    # Row-major optical-camera -> body rotation; configure from sensor calibration.
     camera_to_body_rotation: [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
     camera_to_body_translation: [0.0, 0.0, 0.0]
+    near_clip: 0.05
+    far_clip: 30.0
+    visibility_cell_size: 2
+    occlusion_tolerance: 0.1
+    foreground_depth_band: 0.3
+    min_region_points: 3
+    task_topic: /semantic/task
+    task: >-
+      What objects are visible in the current image? Report the first clear view,
+      then respond only for newly visible objects or a clear semantic scene change.
 
 llm_goal_selector:
   ros__parameters:

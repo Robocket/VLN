@@ -15,5 +15,5 @@ setup(
     description='vln perception for ROS 2',
     license='TODO',
     tests_require=['pytest'],
-    entry_points={'console_scripts': ['yolo_detection_node = vln_perception.detector:main']},
+    entry_points={'console_scripts': ['streaming_semantics = vln_perception.semantic_node:main']},
 )

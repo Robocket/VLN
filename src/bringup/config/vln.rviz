@@ -25,9 +25,18 @@ Visualization Manager:
         Reliability Policy: Reliable
         Durability Policy: Volatile
     - Class: rviz_default_plugins/Image
-      Name: Detection Image
+      Name: Semantic Projection
       Enabled: true
       Topic:
-        Value: /yolo_detection_result
+        Value: /semantic/projection
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+    - Class: rviz_default_plugins/PointCloud2
+      Name: Semantic Cloud
+      Enabled: true
+      Color Transformer: RGB8
+      Size (Pixels): 3
+      Topic:
+        Value: /semantic/cloud
         Reliability Policy: Reliable
         Durability Policy: Volatile

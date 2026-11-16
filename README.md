@@ -1,28 +1,26 @@
 # VLN
 
-基于 RGB-D 检测、自然语言目标选择和点云 A* 规划的视觉语言导航原型。
+基于 OneStreamer 主动流式理解、投影视角点云语义标注、自然语言目标选择和 A* 规划的原型。
 运行环境为 **Ubuntu 24.04 / ROS 2 Jazzy / Python 3.12**。
 
 ```text
 src/
-  interfaces/      四种自定义消息
-  perception/      YOLOv5 检测、深度投影、物体坐标与 Marker
+  interfaces/      物体世界坐标消息
+  perception/      OneStreamer 流式接入、投影与触发式点云标注
   navigation/      指令话题、可选 GGUF 目标选择、终端指令入口
   planner/         C++ A* 点云栅格规划
   bringup/         launch、参数和 RViz 2 配置
-examples/              摄像头预览、YOLO + ORB 实验
-tools/                PyTorch / Transformers 环境检查
-tests/                ROS 2 跨节点集成测试
-docs/                 ROS 2 配置和运行说明
+examples/          摄像头预览
+tools/             推理环境检查
+tests/             Unix socket 和 ROS 2 跨节点集成测试
+docs/              配置和运行说明
 ```
 
 源码目录使用简短名称，ROS 包名仍为 `vln_interfaces`、`vln_perception` 等。
-仓库根目录即 colcon 工作空间，源码位于 `src/`，构建输出为根目录的 `build/`、`install/` 和 `log/`。
-构建目录、模型、录包和本地 `publish/` 论文资料由 `.gitignore` 排除。
+仓库根目录即 colcon 工作空间，输出为 `build/`、`install/`、`log/`。
+本地 `data/`、模型、录包、论文资料和构建目录均由 `.gitignore` 排除。
 
-## 构建 ROS 2
-
-先安装 Jazzy、colcon 和 rosdep，然后从仓库根目录执行：
+## 构建
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -31,47 +29,67 @@ colcon build --symlink-install --cmake-args -DPython3_EXECUTABLE=/usr/bin/python
 source install/setup.bash
 ```
 
-ROS 依赖由 `package.xml` 管理。YOLOv5 仓库、权重、PyTorch 和可选
-`llama-cpp-python` 需单独准备，见[运行与迁移说明](docs/ros2-migration.md)。
+## 主动感知
 
-## 运行
-
-在仓库根目录复制参数文件，并填入本机模型路径和传感器参数：
+默认复用 `/home/crl/DDD/EGI/robot-agent` 的 OneStreamer 配置、独立 Python 环境和已有权重。
+不启动其摄像头或 ROS 桥接，直接使用本仓库的图像、点云和位姿话题。
+NF4、SDPA、视觉缓存、4 帧窗口、8fps 采样和 8-token 主动响应沿用参考配置。
+只有主动 Response 后，才由同一模型额外对触发帧定位，定位输出预算为 256 token。
 
 ```bash
-cp src/bringup/config/vln.yaml /tmp/vln.local.yaml
-# 编辑 /tmp/vln.local.yaml 的 yolov5_repo、weights_path、坐标系和相机外参
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 launch vln_bringup vln.launch.py params_file:=/tmp/vln.local.yaml
+ros2 launch vln_bringup vln.launch.py
 ```
 
-另开终端，加载相同环境后输入指令：
+运行前检查 `src/bringup/config/vln.yaml` 的图像内参、相机外参和世界坐标系。
+生产标定可使用 `transform_mode: tf`，通过图像时间戳查询世界坐标到 optical frame 的变换。
+默认 `odometry` 模式使用配置中的相机到机体外参；这些示例值需要与真实安装一致。
+配置文件可通过 `params_file:=/absolute/path/vln.local.yaml` 覆盖。
+
+OneStreamer 的 Silence / Standby 只发布状态。只有主动 Response 后得到的合法语义框才触发标注：
+
+- `/semantic/cloud`：相机视锥内、遮挡过滤后的点云，包含 `rgb`、`label_id`、`instance_id`。
+- `/semantic/labels`：标签字典、区域、点数、世界坐标中心和源时间戳。
+- `/semantic/projection`：标注后的相机视角图。
+- `/object/absolute_coords_list`、`/object/markers`：供目标选择和 RViz 使用。
+- `/semantic/state`：原始主动状态、拒绝原因及时间信息。
+
+标注采用视觉语言框与深度带关联，是弱语义标签，不提供像素级分割或跨帧实例跟踪。
+输出只对应触发窗口最后一帧的快照，不把延迟响应贴到最新点云上。
+详细行为与参数见 [主动点云语义标注](docs/streaming-semantics.md)。
+
+更新持续监视任务：
+
+```bash
+ros2 topic pub --once /semantic/task std_msgs/msg/String "{data: 'Report when a chair becomes clearly visible for the first time.'}"
+```
+
+任务更新会重置流式会话并丢弃旧任务在途结果，是否触发仍由模型决定。
+
+## 录包与导航
+
+本地数据的播放脚本自动加载 Livox 接口并发布时钟：
+
+```bash
+bash data/play_vln_0420.sh --loop --exclude-topics /object/absolute_coords_list
+```
+
+同时运行感知时使用 `use_sim_time:=true`，并排除录包内的旧物体坐标，避免覆盖新标注。
+输入不再需要深度图；投影直接读取点云。录包缺少 CameraInfo 时使用配置中的内参。
+
+另开终端加载相同 ROS 环境：
 
 ```bash
 ros2 run vln_navigation instruction_cli
-# 不加载 LLM 时输入检测类别名，例如 bottle
-# 配置 llm_model_path 后可输入自然语言，例如“去最近的椅子”
+# 输入已标注类别名，例如 chair
+# 配置 llm_model_path 后可输入自然语言
 ```
 
-也可以直接发送指令：
-
-```bash
-ros2 topic pub --once /vln/instruction std_msgs/msg/String "{data: 'bottle'}"
-```
-
-没有模型时可启动目标选择和规划节点，使用外部物体坐标输入：
-
-```bash
-ros2 launch vln_bringup vln.launch.py enable_perception:=false
-```
-
-规划器发布 `/planned_path`，目前没有路径跟踪器或速度控制器。
-传感器驱动、定位和 TF 由外部系统提供。
+无需模型的已有语义坐标回放可使用 `enable_perception:=false`。
+规划器发布 `/planned_path`，不包含路径执行或速度控制器。
 
 ## 验证
-
-从仓库根目录执行：
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -81,5 +99,5 @@ colcon test-result --verbose
 ROS_DOMAIN_ID=87 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST /usr/bin/python3 -m pytest -q tests/test_ros2_pipeline.py
 ```
 
-集成测试使用合成 RGB-D / 点云和固定检测结果，验证真实 ROS 2 消息传输、坐标投影、
-指令到目标、避障路径及越界拒绝；真实模型推理和机器人运行需要另行验证。
+自动化测试覆盖真实 DDS、Unix socket 协议、主动触发门控、快照一致性、TF、点云遮挡和规划。
+CI 使用可控 worker；真实模型效果、坐标标定和实车闭环需要本机验证。
