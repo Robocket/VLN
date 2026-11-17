@@ -61,7 +61,8 @@ def test_bad_voxel_sizes_are_rejected(size):
 def test_exports_preserve_semantics_and_binary_color_bits(tmp_path):
     mapper = VoxelSemanticMap(0.05)
     mapper.add(event([[1, 2, 3], [4, 5, 6]], [1, 0]), 'world')
-    summary = export_map(tmp_path, mapper, {1: 'chair'})
+    summary = export_map(tmp_path, mapper, {1: 'chair'}, {1: {'token_ids': [7, 8]}},
+                         {'completed': True, 'status': 'complete'})
     assert summary['map_points'] == 2 and summary['labeled_map_points'] == 1
     saved = np.load(tmp_path/'semantic_map.npz', allow_pickle=False)
     records = saved['points']
@@ -72,19 +73,19 @@ def test_exports_preserve_semantics_and_binary_color_bits(tmp_path):
     header, data = pcd.split(b'DATA binary\n', 1)
     assert b'TYPE F F F F U U U\n' in header and b'POINTS 2\n' in header
     np.testing.assert_array_equal(np.frombuffer(data, dtype=MAP_DTYPE), records)
-    ply = (tmp_path/'semantic_map.ply').read_bytes()
-    header, data = ply.split(b'end_header\n', 1)
-    assert b'format binary_little_endian 1.0\n' in header
-    assert b'element vertex 2\n' in header
-    assert len(data) == 2*(3*4+3+3*4)
-    assert json.loads((tmp_path/'labels.json').read_text()) == {'0': 'unlabeled', '1': 'chair'}
-    assert (tmp_path/'semantic_map_xy.png').is_file()
+    assert json.loads(str(saved['labels'])) == {'0': 'unlabeled', '1': 'chair'}
+    assert json.loads(str(saved['scene_events']))['1']['token_ids'] == [7, 8]
+    metadata = json.loads(str(saved['metadata']))
+    assert metadata['completed'] is True and metadata['map_points'] == 2
+    assert {p.name for p in tmp_path.iterdir()} == {'semantic_map.pcd', 'semantic_map.npz'}
 
 
 def test_empty_map_is_an_explicit_empty_artifact(tmp_path):
-    summary = export_map(tmp_path, VoxelSemanticMap(), {})
+    summary = export_map(tmp_path, VoxelSemanticMap(), {}, {}, {'completed': False, 'status': 'failed'})
     assert summary['map_points'] == summary['labeled_map_points'] == 0
-    assert b'element vertex 0\n' in (tmp_path/'semantic_map.ply').read_bytes()
+    assert b'POINTS 0\n' in (tmp_path/'semantic_map.pcd').read_bytes()
+    saved = np.load(tmp_path/'semantic_map.npz', allow_pickle=False)
+    assert json.loads(str(saved['metadata']))['completed'] is False
 
 
 def test_every_scene_event_link_survives_fusion_and_duplicate_events_are_idempotent(tmp_path):
@@ -102,6 +103,6 @@ def test_every_scene_event_link_survives_fusion_and_duplicate_events_are_idempot
     export_map(tmp_path, mapper, {1: 'A desk is visible.', 2: 'A room with chairs.'}, events)
     saved = np.load(tmp_path/'semantic_map.npz', allow_pickle=False)
     assert saved['scene_event_ids'].tolist() == [41, 42]
-    stored = json.loads((tmp_path/'scene_events.json').read_text())
+    stored = json.loads(str(saved['scene_events']))
     assert stored['41']['token_ids'] == [7, 8]
     assert stored['42']['token_ids'] == [9, 10]

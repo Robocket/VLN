@@ -1,10 +1,8 @@
 """World-frame voxel fusion preserving every associated scene description event."""
 
-from collections import Counter
 import json
 from pathlib import Path
 
-import cv2
 import numpy as np
 
 from .projection import label_color
@@ -97,26 +95,6 @@ class VoxelSemanticMap:
         return np.array(offsets, dtype=np.uint64), np.array(event_ids, dtype=np.uint32)
 
 
-def write_ply(path, records):
-    """Binary little-endian PLY with standard RGB and explicit semantic properties."""
-    dtype = np.dtype([('x', '<f4'), ('y', '<f4'), ('z', '<f4'),
-                      ('red', 'u1'), ('green', 'u1'), ('blue', 'u1'),
-                      ('label_id', '<u4'), ('observations', '<u4'), ('label_votes', '<u4')])
-    body = np.empty(len(records), dtype=dtype)
-    for name in ('x', 'y', 'z', 'label_id', 'observations', 'label_votes'):
-        body[name] = records[name]
-    for name, shift in [('red', 16), ('green', 8), ('blue', 0)]:
-        body[name] = (records['rgb'] >> shift) & 255
-    header = ('ply\nformat binary_little_endian 1.0\n'
-              f'element vertex {len(body)}\n'
-              'property float x\nproperty float y\nproperty float z\n'
-              'property uchar red\nproperty uchar green\nproperty uchar blue\n'
-              'property uint label_id\nproperty uint observations\nproperty uint label_votes\nend_header\n')
-    with Path(path).open('wb') as output:
-        output.write(header.encode('ascii'))
-        output.write(body.tobytes())
-
-
 def write_pcd(path, records):
     """PCD 0.7; RGB uses the packed float convention expected by PCL viewers."""
     header = ('# .PCD v0.7\nVERSION 0.7\n'
@@ -130,64 +108,26 @@ def write_pcd(path, records):
         output.write(records.astype(MAP_DTYPE, copy=False).tobytes())
 
 
-def write_preview(path, records, labels, voxel_size):
-    image = np.full((1000, 1360, 3), 250, dtype=np.uint8)
-    cv2.putText(image, f'Semantic map: XY / voxel {voxel_size:g}m', (25, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (30, 30, 30), 1)
-    if len(records):
-        xy = np.column_stack([records['x'], records['y']])
-        low, high = xy.min(axis=0), xy.max(axis=0)
-        scale = 880 / max(float(np.max(high-low)), voxel_size)
-        uv = ((xy-low) * scale).astype(int)
-        # Paint known classes after unknown points so semantic surfaces stay visible.
-        for index in np.argsort(records['label_id'] != 0, kind='stable'):
-            x, y = int(uv[index, 0])+45, 945-int(uv[index, 1])
-            color = int(records['rgb'][index])
-            cv2.circle(image, (x, y), 2, (color & 255, (color >> 8) & 255, (color >> 16) & 255), -1)
-        cv2.putText(image, f'X: {low[0]:.2f} .. {high[0]:.2f} m', (45, 980),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (30, 30, 30), 1)
-        cv2.putText(image, f'Y: {low[1]:.2f} .. {high[1]:.2f} m', (980, 75),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (30, 30, 30), 1)
-    else:
-        cv2.putText(image, 'No semantic annotations were produced', (70, 180),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 180), 2)
-    counts = Counter(int(x) for x in records['label_id'])
-    for row, (label, count) in enumerate(sorted(counts.items())):
-        if row >= 34:
-            break
-        color = label_color(labels[label]) if label else 0x808080
-        y = 110 + row * 24
-        cv2.rectangle(image, (980, y-12), (995, y+3),
-                      (color & 255, (color >> 8) & 255, (color >> 16) & 255), -1)
-        cv2.putText(image, f'{label}: {labels.get(label, "unlabeled")[:28]} ({count})', (1004, y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (30, 30, 30), 1)
-    if not cv2.imwrite(str(path), image):
-        raise OSError(f'Could not write preview: {path}')
 
-
-def export_map(directory, semantic_map, labels, scene_events=None):
+def export_map(directory, semantic_map, labels, scene_events, metadata=None):
+    """Save a viewable PCD and a self-contained NPZ with exact scene token links."""
+    records = semantic_map.records(labels)
+    offsets, event_ids = semantic_map.event_links()
+    if set(int(x) for x in event_ids) - set(scene_events):
+        raise ValueError('Map contains scene event IDs without token metadata')
+    summary = {'map_points': len(records),
+               'labeled_map_points': int(np.count_nonzero(records['label_id'])),
+               'scene_event_links': len(event_ids)}
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    records = semantic_map.records(labels)
-    labeled = records[records['label_id'] != 0]
-    for name, points in [('semantic_map', records), ('semantic_labeled', labeled)]:
-        write_ply(directory / f'{name}.ply', points)
-        write_pcd(directory / f'{name}.pcd', points)
-    offsets, event_ids = semantic_map.event_links()
-    np.savez_compressed(directory / 'semantic_map.npz', points=records,
-                        frame_id=semantic_map.frame_id, voxel_size=semantic_map.voxel_size,
-                        scene_event_offsets=offsets, scene_event_ids=event_ids)
-    if scene_events is not None:
-        if set(int(x) for x in event_ids) - set(scene_events):
-            raise ValueError('Map contains scene event IDs without token metadata')
-        (directory / 'scene_events.json').write_text(json.dumps(
-            {str(key): value for key, value in sorted(scene_events.items())},
-            indent=2, ensure_ascii=False)+'\n')
-    (directory / 'labels.json').write_text(json.dumps(
-        {'0': 'unlabeled', **{str(key): value for key, value in sorted(labels.items()) if key}},
-        indent=2, ensure_ascii=False) + '\n')
-    write_preview(directory / 'semantic_map_xy.png', records, labels, semantic_map.voxel_size)
-    return {'map_points': len(records), 'labeled_map_points': len(labeled),
-            'scene_event_links': len(event_ids),
-            'scene_label_point_counts': {labels.get(key, 'unlabeled'): count for key, count in
-                                   sorted(Counter(int(x) for x in records['label_id']).items())}}
+    write_pcd(directory / 'semantic_map.pcd', records)
+    np.savez_compressed(
+        directory / 'semantic_map.npz', points=records,
+        frame_id=semantic_map.frame_id, voxel_size=semantic_map.voxel_size,
+        scene_event_offsets=offsets, scene_event_ids=event_ids,
+        labels=json.dumps({'0': 'unlabeled', **{str(key): value for key, value in sorted(labels.items()) if key}},
+                          ensure_ascii=False),
+        scene_events=json.dumps({str(key): value for key, value in sorted(scene_events.items())},
+                                ensure_ascii=False),
+        metadata=json.dumps({**(metadata or {}), **summary}, ensure_ascii=False))
+    return summary

@@ -11,7 +11,7 @@ src/
   planner/         C++ A* 点云栅格规划
   bringup/         launch、参数和 RViz 2 配置
 examples/          摄像头预览
-tools/             推理环境检查
+tools/             播放、建图脚本和推理环境检查
 tests/             Unix socket 和 ROS 2 跨节点集成测试
 docs/              配置和运行说明
 ```
@@ -19,6 +19,8 @@ docs/              配置和运行说明
 源码目录使用简短名称，ROS 包名仍为 `vln_interfaces`、`vln_perception` 等。
 仓库根目录即 colcon 工作空间，输出为 `build/`、`install/`、`log/`。
 本地 `data/`、模型、录包、论文资料和构建目录均由 `.gitignore` 排除。
+录包集中放在 `data/bags/`，地图放在 `data/maps/`；原始包保留在 `data/bags/original/`。
+播放所需的本地 Livox 接口环境放在 `.cache/ros2_compat_ws/`。
 
 ## 构建
 
@@ -85,7 +87,7 @@ bash tools/play_bag.sh --loop --exclude-topics /object/absolute_coords_list
 图像窗口中按 **空格** 暂停/继续，按 **Q/Esc** 或关闭窗口退出并停止播放器。
 支持 `--bag`、`--rate`、`--start-offset`、`--duration`、`--keep-open`；
 `--image-topic` 选择图像话题，深度窗口可用 `--depth-topic` 和 `--depth-max` 设置话题和显示量程。
-默认 bag 为 `data/vln_0420_ros2`，默认显示 `/camera/color/image_raw`。
+默认 bag 为 `data/bags/vln_0420_ros2`，默认显示 `/camera/color/image_raw`。
 
 同时运行感知时使用 `use_sim_time:=true`。录包内旧物体坐标可用上述参数排除。
 输入不再需要深度图；投影直接读取点云。录包缺少 CameraInfo 时使用配置中的内参。
@@ -106,11 +108,11 @@ ros2 run vln_navigation instruction_cli
 ## 离线语义建图
 
 ```bash
-bash tools/build_semantic_map.sh --bag data/vln_0420_ros2 --output data/maps/my_run
+bash tools/build_semantic_map.sh --bag data/bags/vln_0420_ros2 --output data/maps/my_run
 ```
 
-整包逐窗口推理后，将有效触发视角的语义点云按世界坐标合并，保存 PLY、PCD、NPZ、
-标签表、原始 token 事件表和俯视预览。重叠点保留所有关联事件。
+整包逐窗口推理后，将有效触发视角的语义点云按世界坐标合并，仅保存
+PCD 和 NPZ 两个文件。NPZ 包含完整描述、原始 token、标签表和所有重叠事件关联。
 输出目录不能已存在，默认体素分辨率 5 cm；生成物留在 Git 忽略的 `data/`。
 处理规则和本地实跑结果见[离线建图说明](docs/semantic-mapping.md)。
 

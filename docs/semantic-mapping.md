@@ -7,7 +7,7 @@
 
 ```bash
 bash tools/build_semantic_map.sh \
-  --bag data/vln_0420_ros2 \
+  --bag data/bags/vln_0420_ros2 \
   --output data/maps/my_scene_run
 ```
 
@@ -15,7 +15,6 @@ bash tools/build_semantic_map.sh \
 输出目录必须不存在；原始 ROS 1 `.bag` 需先转换为 ROS 2 MCAP/DB3。
 `--voxel-size 0.03` 改变分辨率，`--params-file /absolute/path/local.yaml` 指定配置，
 `--task '...'` 更改持续问题，`--description-tokens 128` 设置回答长度上限。
-`--no-event-files` 跳过单事件 NPZ、JSON 和投影图。
 已有专用 worker 时可使用 `--reuse-worker --socket-path /path/to/worker.sock`。
 
 ## 处理与融合
@@ -40,49 +39,45 @@ bash tools/build_semantic_map.sh \
 
 ## 输出与读取标签
 
+每次建图仅保存两个文件：
+
 | 文件 | 内容 |
 | --- | --- |
-| `semantic_map.pcd` / `.ply` | 总图，含主 label_id、RGB、observations、label_votes |
-| `semantic_labeled.pcd` / `.ply` | label_id>0 的点；当前每个有效事件的可见点均有标签 |
-| `semantic_map.npz` | points、frame_id、体素分辨率、每个点的所有事件关联 |
-| `labels.json` | 数字 label_id → 完整场景描述，0 表示未标注 |
-| `scene_events.json` | event_id → 描述、原始 token 序列、源时间和视角元数据 |
-| `semantic_map_xy.png` | XY 预览，图例显示标签 ID 与描述摘要 |
-| `configuration.json` / `report.json` | 配置和完成状态、窗口/触发/点数/耗时统计 |
-| `states.jsonl` | 每个窗口的原始模型状态、回答和 token |
-| `events/` | 每次触发的点云 NPZ、完整事件 JSON、投影图 PNG |
+| `semantic_map.pcd` | 用于查看的总图，含主 label_id、RGB、observations、label_votes |
+| `semantic_map.npz` | 总图点、所有事件关联、完整描述、原始 token 和运行元数据 |
 
-单事件点云含 `label_id` 和 `event_id`。总图合并后，一个点可能关联多个事件，
-使用 `scene_event_offsets` 与 `scene_event_ids` 组成的压缩索引读取：
+不生成逐帧日志、单事件文件、预览图、PLY 或重复的标注子集。
+NPZ 的 `labels`、`scene_events`、`metadata` 是 JSON 字符串，可用 `allow_pickle=False` 安全读取。
+`metadata` 中包含是否完成、窗口/事件数量和参数，部分运行不会标成完整结果。
 
 ```python
 import json
 import numpy as np
 
-folder = 'data/maps/vln_0420_scene_v2'
-data = np.load(f'{folder}/semantic_map.npz', allow_pickle=False)
-labels = json.load(open(f'{folder}/labels.json'))
-events = json.load(open(f'{folder}/scene_events.json'))
-i = 0  # 要查询的总图点索引
-point = data['points'][i]
-print('显示标签:', int(point['label_id']), labels[str(int(point['label_id']))])
-start, end = data['scene_event_offsets'][i:i+2]
-for event_id in data['scene_event_ids'][int(start):int(end)]:
-    event = events[str(int(event_id))]
-    print(event['description'], event['token_ids'])
+with np.load('data/maps/vln_0420/semantic_map.npz', allow_pickle=False) as data:
+    labels = json.loads(str(data['labels']))
+    events = json.loads(str(data['scene_events']))
+    metadata = json.loads(str(data['metadata']))
+    i = 0  # 要查询的总图点索引
+    point = data['points'][i]
+    print('显示标签:', int(point['label_id']), labels[str(int(point['label_id']))])
+    start, end = data['scene_event_offsets'][i:i+2]
+    for event_id in data['scene_event_ids'][int(start):int(end)]:
+        event = events[str(int(event_id))]
+        print(event['description'], event['token_ids'])
 ```
 
-PCD/PLY 保存单个主标签；查看所有关联描述时需同时读取 NPZ 与 JSON。
-不支持自定义属性的查看器仍可显示 XYZ/RGB。
+`scene_event_offsets` 与 `scene_event_ids` 保存每个点关联的全部场景事件。
+PCD 只用于显示主标签，完整语义从同目录的 NPZ 读取。
 
-所有生成物都在 Git 忽略的 `data/`。中断会保存已完成事件的部分地图，并标明未完成。
-整包处理后若没有有效描述，保存空图和诊断报告，以非零退出码提示检查触发任务。
+`data/bags/` 放录包，`data/maps/` 放地图；全部由 Git 忽略。
+终端显示运行进度，中断时保存已有事件及未完成状态到同一 NPZ。
+没有有效描述时保存空图及状态，以非零退出码提示检查任务。
 
 ## 本地验证
 
 本地 bag 含 473 张彩色图像，按 8fps 采样得到 237 帧、60 个窗口。
 当前方法实跑产生 5 次主动描述，3,869 个输入可见点全部获得标签。
-5cm 融合后有 2,631 点、3,137 条场景事件关联，其中 466 个体素保留多个事件，耗时约 56 秒。
-实际描述包括笔记本电脑、水瓶、冰箱等场景内容，原文及 token 可在 `scene_events.json` 查看。
-完整统计位于 `data/maps/vln_0420_scene_v2/report.json`。
-旧 `data/maps/vln_0420_semantic` 是已停用的框关联结果，不代表当前方法。
+5cm 融合后有 2,631 点、3,137 条场景事件关联，其中 466 个体素保留多个事件，耗时约一分钟。
+实际描述包括笔记本电脑、水瓶、冰箱等场景内容，原文、token 及统计集中在
+`data/maps/vln_0420/semantic_map.npz`。旧实验地图和调试文件已清理。

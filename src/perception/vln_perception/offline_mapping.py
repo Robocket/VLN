@@ -4,7 +4,6 @@ import argparse
 import base64
 from bisect import bisect_left, bisect_right
 from collections import Counter
-import json
 from pathlib import Path
 import tempfile
 import time
@@ -77,7 +76,7 @@ def read_parameters(path):
 
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bag', default='data/vln_0420_ros2')
+    parser.add_argument('--bag', default='data/bags/vln_0420_ros2')
     parser.add_argument('--output', help='New output directory; existing directories are never overwritten')
     parser.add_argument('--params-file', default='src/bringup/config/vln.yaml')
     parser.add_argument('--voxel-size', type=float, default=0.05, help='Voxel edge length in meters')
@@ -87,18 +86,15 @@ def arguments(argv=None):
     parser.add_argument('--description-tokens', type=int, help='Maximum tokens in a proactive scene description')
     parser.add_argument('--ros-domain-id', type=int, default=94, help='Isolated local ROS context for projection helpers')
     parser.add_argument('--window-timeout', type=float, default=600.0)
-    parser.add_argument('--no-event-files', action='store_true', help='Skip individual event NPZ and image files')
     return parser.parse_args(argv)
 
 
 class OfflineMapper:
-    def __init__(self, node, bag, output, voxel_size, save_events=True):
-        self.node, self.bag, self.output = node, bag, Path(output)
+    def __init__(self, node, bag, voxel_size):
+        self.node, self.bag = node, bag
         self.map = VoxelSemanticMap(voxel_size, node.param('frame_id'))
-        self.save_events = save_events
         self.counts = Counter()
         self.skip_reasons = Counter()
-        self.states = []
         self.scene_events = {}
         self.generation = 0
 
@@ -147,7 +143,7 @@ class OfflineMapper:
             self.transform_index += 1
         return node.snapshot(image)
 
-    def process_window(self, batch, log):
+    def process_window(self, batch):
         node = self.node
         request = {'question': node.task,
                    'version': self.generation, 'sample_fps': node.settings.sample_fps,
@@ -160,10 +156,8 @@ class OfflineMapper:
                 or result.get('question') != request['question']):
             raise ValueError('Worker returned a result for the wrong image window')
         self.counts['windows'] += 1
-        state = {key: value for key, value in result.items() if key != 'keyframes'}
-        state.update(window=self.counts['windows'], source_cloud_ns=batch[-1][0].cloud_stamp_ns,
-                     elapsed_s=round(time.monotonic()-started, 3))
-        state['frame_count'] = len(batch)
+        elapsed = time.monotonic()-started
+        labeled_points = 0
         if result.get('response') is None:
             self.counts['standby' if '</Standby>' in result.get('raw', '') else 'silence'] += 1
         else:
@@ -173,78 +167,55 @@ class OfflineMapper:
                 snapshot = batch[-1][0]
                 event_id = self.counts['annotated_events'] + 1
                 records, event = scene_records(snapshot, description, node.label_ids, event_id)
-                event.update(window=state['window'], stamp_ns=stamp_ns(snapshot.header.stamp),
+                event.update(window=self.counts['windows'], stamp_ns=stamp_ns(snapshot.header.stamp),
                              source_cloud_ns=snapshot.cloud_stamp_ns, source_pose_ns=snapshot.pose_stamp_ns,
                              frame_id=snapshot.frame_id, image_frame_id=snapshot.header.frame_id)
-                state['scene_event'] = event
-                state['visible_points'] = state['labeled_points'] = len(records)
+                labeled_points = len(records)
                 if len(records):
                     self.map.add(records, snapshot.frame_id)
                     self.scene_events[event_id] = event
                     self.counts['annotated_events'] += 1
-                    if self.save_events:
-                        self.save_event(snapshot, records, event)
             except (ValueError, TypeError) as exc:
                 self.counts['rejected_descriptions'] += 1
-                state['annotation_error'] = str(exc)
-        log.write(json.dumps(state, ensure_ascii=False)+'\n')
-        log.flush()
-        self.states.append({key: state[key] for key in
-                            ('window', 'source_end_ns', 'elapsed_s', 'labeled_points', 'annotation_error') if key in state})
+                print(f'Scene annotation rejected: {exc}', flush=True)
         print(f'Window {self.counts["windows"]:03d} '
               f'{"Response" if result.get("response") is not None else result.get("raw", "Silence")} '
-              f'points={state.get("labeled_points", 0)} '
-              f'map_voxels={len(self.map.voxels)} time={state["elapsed_s"]:.2f}s', flush=True)
-
-    def save_event(self, snapshot, records, event):
-        directory = self.output / 'events'
-        directory.mkdir(exist_ok=True)
-        prefix = directory / f'{event["event_id"]:04d}_{stamp_ns(snapshot.header.stamp)}'
-        np.savez_compressed(str(prefix)+'.npz', points=records, frame_id=snapshot.frame_id)
-        Path(str(prefix)+'.json').write_text(json.dumps(event, indent=2, ensure_ascii=False)+'\n')
-        image = snapshot.image.copy()
-        for (u, v), color in zip(snapshot.uv, records['rgb']):
-            color = int(color)
-            image[v, u] = [color & 255, (color >> 8) & 255, (color >> 16) & 255]
-        cv2.putText(image, f'Scene {event["event_id"]} | label_id={event["label_id"]}', (8, 20),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        if not cv2.imwrite(str(prefix)+'.png', image):
-            raise OSError('Could not save event projection')
+              f'points={labeled_points} '
+              f'map_voxels={len(self.map.voxels)} time={elapsed:.2f}s', flush=True)
 
     def run(self):
         self.index_inputs()
         node = self.node
         batch = []
         last_sampled = previous = None
-        with (self.output / 'states.jsonl').open('w') as log:
-            for _, image, _ in self.bag.messages({node.param('color_topic')}):
-                self.counts['images'] += 1
-                timestamp = stamp_ns(image.header.stamp)
-                if previous is not None and timestamp < previous:
-                    self.generation += 1
-                    batch.clear()
-                    last_sampled = None
-                    self.counts['clock_resets'] += 1
-                previous = timestamp
-                if last_sampled is not None and timestamp-last_sampled < 1e9/node.settings.sample_fps:
-                    continue
-                try:
-                    snapshot = self.snapshot(image)
-                except Exception as exc:
-                    self.counts['skipped_images'] += 1
-                    self.skip_reasons[str(exc)] += 1
-                    continue
-                ok, jpeg = cv2.imencode('.jpg', snapshot.image, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                if not ok:
-                    raise ValueError('Could not encode sampled frame')
-                batch.append((snapshot, base64.b64encode(jpeg).decode('ascii')))
-                last_sampled = timestamp
-                self.counts['sampled_images'] += 1
-                if len(batch) == 4:
-                    self.process_window(batch, log)
-                    batch = []
-            if batch:
-                self.process_window(batch, log)
+        for _, image, _ in self.bag.messages({node.param('color_topic')}):
+            self.counts['images'] += 1
+            timestamp = stamp_ns(image.header.stamp)
+            if previous is not None and timestamp < previous:
+                self.generation += 1
+                batch.clear()
+                last_sampled = None
+                self.counts['clock_resets'] += 1
+            previous = timestamp
+            if last_sampled is not None and timestamp-last_sampled < 1e9/node.settings.sample_fps:
+                continue
+            try:
+                snapshot = self.snapshot(image)
+            except Exception as exc:
+                self.counts['skipped_images'] += 1
+                self.skip_reasons[str(exc)] += 1
+                continue
+            ok, jpeg = cv2.imencode('.jpg', snapshot.image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if not ok:
+                raise ValueError('Could not encode sampled frame')
+            batch.append((snapshot, base64.b64encode(jpeg).decode('ascii')))
+            last_sampled = timestamp
+            self.counts['sampled_images'] += 1
+            if len(batch) == 4:
+                self.process_window(batch)
+                batch = []
+        if batch:
+            self.process_window(batch)
         if not self.counts['images']:
             raise ValueError('Bag contains no images on the configured color topic')
         if not self.counts['windows']:
@@ -277,7 +248,6 @@ def main(argv=None):
               'config': parameters, 'streamer': {'sample_fps': settings.sample_fps,
                   'inference': settings.inference,
                   'model': str(settings.model), 'python': str(settings.python)}}
-    (output / 'configuration.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\n')
     rclpy.init(domain_id=args.ros_domain_id)
     try:
         with tempfile.TemporaryDirectory(prefix='vln-map-') as temporary:
@@ -288,7 +258,7 @@ def main(argv=None):
             try:
                 node = SemanticNode(settings=settings, client=client,
                                     parameter_overrides=[Parameter(key, value=value) for key, value in parameters.items()])
-                mapper = OfflineMapper(node, bag, output, args.voxel_size, not args.no_event_files)
+                mapper = OfflineMapper(node, bag, args.voxel_size)
                 if not args.reuse_worker:
                     worker = WorkerProcess(settings, socket_path)
                     ready_by = time.monotonic() + parameters.get('startup_timeout', 120.0)
@@ -315,19 +285,20 @@ def main(argv=None):
     finally:
         if mapper is not None:
             labels = {value: key for key, value in mapper.node.label_ids.items()}
-            report.update(export_map(output, mapper.map, labels, mapper.scene_events))
             report.update(counts=dict(mapper.counts), skip_reasons=dict(mapper.skip_reasons),
                           frame_id=mapper.map.frame_id, events=mapper.map.events,
                           input_points=mapper.map.input_points,
                           input_labeled_points=mapper.map.input_labeled_points)
         report['elapsed_s'] = round(time.monotonic()-started, 3)
-        report['status'] = ('complete' if report.get('labeled_map_points') else 'no_annotations') if report['completed'] else 'failed'
-        (output / 'report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\n')
+        report['status'] = ('complete' if mapper is not None and mapper.map.input_labeled_points else 'no_annotations') if report['completed'] else 'failed'
+        if mapper is not None:
+            report.update(export_map(output, mapper.map, labels, mapper.scene_events, report))
         if rclpy.ok():
             rclpy.shutdown()
-    print(json.dumps(report, indent=2, ensure_ascii=False), flush=True)
+    print(f'Saved {report.get("map_points", 0)} points from {report.get("events", 0)} events '
+          f'in {report["elapsed_s"]:.1f}s: {output}', flush=True)
     if not report.get('labeled_map_points'):
-        raise SystemExit('Bag processed, but no labeled points were produced; inspect states.jsonl and the task')
+        raise SystemExit('Bag processed, but no labeled points were produced; check the task and metadata in semantic_map.npz')
     return 0
 
 

@@ -12,6 +12,7 @@ import rosbag2_py
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Header
 
+from vln_perception.mapping import export_map
 from vln_perception.offline_mapping import BagInput, OfflineMapper
 from vln_perception.semantic_node import SemanticNode
 
@@ -78,7 +79,7 @@ def test_complete_bag_waits_for_each_window_flushes_tail_and_only_fuses_real_res
                                 Parameter('fx', value=4.0), Parameter('fy', value=4.0),
                                 Parameter('cx', value=4.0), Parameter('cy', value=4.0),
                                 Parameter('image_width', value=8), Parameter('image_height', value=8)])
-        mapper = OfflineMapper(node, BagInput(bag_path), output, 0.05)
+        mapper = OfflineMapper(node, BagInput(bag_path), 0.05)
         mapper.run()
         assert mapper.counts['images'] == mapper.counts['sampled_images'] == 9
         assert mapper.counts['windows'] == 3
@@ -95,10 +96,14 @@ def test_complete_bag_waits_for_each_window_flushes_tail_and_only_fuses_real_res
         assert offsets.tolist() == [0, 2, 4, 6]
         assert mapper.scene_events[1]['token_ids'] == [151670, 41, 42, 151645]
         assert mapper.scene_events[2]['description'] == 'A room with desks and chairs.'
-        assert len(list((output/'events').glob('*.npz'))) == 2
-        states = [json.loads(line) for line in (output/'states.jsonl').read_text().splitlines()]
-        assert states[-1]['source_cloud_ns'] == 1_810_000_000
-        assert states[-1]['source_end_ns'] == 1_800_000_000
+        assert not list(output.iterdir()), 'Inference must not create per-window or per-event files'
+        assert mapper.scene_events[2]['source_cloud_ns'] == 1_810_000_000
+        assert mapper.scene_events[2]['stamp_ns'] == 1_800_000_000
+        export_map(output, mapper.map, {1: 'A room with desks and chairs.'}, mapper.scene_events)
+        assert {p.name for p in output.iterdir()} == {'semantic_map.pcd', 'semantic_map.npz'}
+        saved = np.load(output/'semantic_map.npz', allow_pickle=False)
+        events = json.loads(str(saved['scene_events']))
+        assert events['2']['token_ids'] == [151670, 41, 42, 151645]
     finally:
         if node is not None:
             node.destroy_node()

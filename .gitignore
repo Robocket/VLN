@@ -3,6 +3,9 @@
 **/install/
 **/log/
 
+# Local runtime caches
+/.cache/
+
 # Python and local environments
 __pycache__/
 *.py[cod]

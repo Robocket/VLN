@@ -130,7 +130,7 @@ class ImageViewer(Node):
 
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--bag', type=Path, default=Path('data/vln_0420_ros2'))
+    parser.add_argument('--bag', type=Path, default=Path('data/bags/vln_0420_ros2'))
     parser.add_argument('--image-topic', default='/camera/color/image_raw')
     parser.add_argument('--show-depth', action='store_true', help='Also open a colorized depth window')
     parser.add_argument('--depth-topic', default='/camera/depth/image_rect_raw')
