@@ -24,10 +24,9 @@ class StreamerSettings:
     sample_fps: float
     timeout: float
     inference: dict
-    grounding_tokens: int = 256
 
     @classmethod
-    def load(cls, root, config='configs/onestreamer-fast.json', python='', model='', grounding_tokens=256):
+    def load(cls, root, config='configs/onestreamer-fast.json', python='', model='', description_tokens=128):
         root = Path(root).expanduser().resolve()
         integration = root / 'modules/OneStreamer/robot_integration'
         base = json.loads((integration / 'live_config.json').read_text())
@@ -42,8 +41,9 @@ class StreamerSettings:
                     raise ValueError(f'Unknown OneStreamer config key: {group}.{key}')
                 base[group][key] = value
         inf = dict(base['inference'])
-        if type(grounding_tokens) is not int or not 1 <= grounding_tokens <= 4096:
-            raise ValueError('grounding_tokens must be between 1 and 4096')
+        if type(description_tokens) is not int or not 1 <= description_tokens <= 4096:
+            raise ValueError('description_tokens must be between 1 and 4096')
+        inf['max_new_tokens'] = description_tokens
         fps, timeout = float(base['ros']['sample_fps']), float(base['ros']['worker_timeout'])
         if not math.isfinite(fps) or fps <= 0 or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError('OneStreamer sample_fps and worker_timeout must be finite and positive')
@@ -70,7 +70,7 @@ class StreamerSettings:
 
         return cls(root, integration / 'live_worker.py',
                    asset(python, '.envs/onestreamer/bin/python'),
-                   asset(model, inf['model_path']), fps, timeout, inf, grounding_tokens)
+                   asset(model, inf['model_path']), fps, timeout, inf)
 
     def command(self, socket_path):
         for path in (self.python, self.worker, self.model):
@@ -79,7 +79,7 @@ class StreamerSettings:
         inf = self.inference
         adapter = Path(__file__).with_name('gpu_worker.py')
         command = [str(self.python), '-u', str(adapter), '--integration-dir', str(self.worker.parent),
-                   '--grounding-tokens', str(self.grounding_tokens), '--model', str(self.model),
+                   '--model', str(self.model),
                    '--socket', socket_path]
         for key in ('max_frames', 'max_new_tokens', 'max_image_pixels', 'temperature'):
             command += ['--' + key.replace('_', '-'), str(inf[key])]

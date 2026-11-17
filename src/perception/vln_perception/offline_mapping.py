@@ -19,7 +19,7 @@ from rosidl_runtime_py.utilities import get_message
 import yaml
 
 from .mapping import VoxelSemanticMap, export_map
-from .projection import GROUNDING_FORMAT, parse_regions, semantic_records
+from .projection import parse_scene_response, scene_records
 from .semantic_node import SemanticNode, stamp_ns
 from .streamer import DEFAULT_ROOT, SocketClient, StreamerSettings, WorkerProcess
 
@@ -84,7 +84,7 @@ def arguments(argv=None):
     parser.add_argument('--task', help='Override the continuous proactive task, without resetting it per window')
     parser.add_argument('--socket-path', help='Use a dedicated socket path')
     parser.add_argument('--reuse-worker', action='store_true', help='Connect an existing VLN semantic worker')
-    parser.add_argument('--grounding-tokens', type=int, help='Override grounding output budget')
+    parser.add_argument('--description-tokens', type=int, help='Maximum tokens in a proactive scene description')
     parser.add_argument('--ros-domain-id', type=int, default=94, help='Isolated local ROS context for projection helpers')
     parser.add_argument('--window-timeout', type=float, default=600.0)
     parser.add_argument('--no-event-files', action='store_true', help='Skip individual event NPZ and image files')
@@ -99,6 +99,7 @@ class OfflineMapper:
         self.counts = Counter()
         self.skip_reasons = Counter()
         self.states = []
+        self.scene_events = {}
         self.generation = 0
 
     def index_inputs(self):
@@ -148,7 +149,7 @@ class OfflineMapper:
 
     def process_window(self, batch, log):
         node = self.node
-        request = {'question': node.task, 'grounding_prompt': GROUNDING_FORMAT,
+        request = {'question': node.task,
                    'version': self.generation, 'sample_fps': node.settings.sample_fps,
                    'frames': [{'stamp_ns': stamp_ns(snapshot.header.stamp), 'jpeg': jpeg}
                               for snapshot, jpeg in batch]}
@@ -168,22 +169,23 @@ class OfflineMapper:
         else:
             self.counts['responses'] += 1
             try:
-                regions = parse_regions(result['response'])
+                description = parse_scene_response(result)
                 snapshot = batch[-1][0]
-                records, annotations = semantic_records(snapshot, regions, node.label_ids,
-                    node.param('foreground_depth_band'), node.param('min_region_points'))
-                state['regions'] = annotations
-                state['visible_points'] = len(records)
-                state['labeled_points'] = int(np.count_nonzero(records['label_id']))
-                if state['labeled_points']:
+                event_id = self.counts['annotated_events'] + 1
+                records, event = scene_records(snapshot, description, node.label_ids, event_id)
+                event.update(window=state['window'], stamp_ns=stamp_ns(snapshot.header.stamp),
+                             source_cloud_ns=snapshot.cloud_stamp_ns, source_pose_ns=snapshot.pose_stamp_ns,
+                             frame_id=snapshot.frame_id, image_frame_id=snapshot.header.frame_id)
+                state['scene_event'] = event
+                state['visible_points'] = state['labeled_points'] = len(records)
+                if len(records):
                     self.map.add(records, snapshot.frame_id)
+                    self.scene_events[event_id] = event
                     self.counts['annotated_events'] += 1
                     if self.save_events:
-                        self.save_event(snapshot, records, annotations, state)
-                else:
-                    self.counts['responses_without_labeled_points'] += 1
+                        self.save_event(snapshot, records, event)
             except (ValueError, TypeError) as exc:
-                self.counts['rejected_grounding'] += 1
+                self.counts['rejected_descriptions'] += 1
                 state['annotation_error'] = str(exc)
         log.write(json.dumps(state, ensure_ascii=False)+'\n')
         log.flush()
@@ -194,26 +196,18 @@ class OfflineMapper:
               f'points={state.get("labeled_points", 0)} '
               f'map_voxels={len(self.map.voxels)} time={state["elapsed_s"]:.2f}s', flush=True)
 
-    def save_event(self, snapshot, records, annotations, state):
+    def save_event(self, snapshot, records, event):
         directory = self.output / 'events'
         directory.mkdir(exist_ok=True)
-        prefix = directory / f'{self.counts["annotated_events"]:04d}_{stamp_ns(snapshot.header.stamp)}'
+        prefix = directory / f'{event["event_id"]:04d}_{stamp_ns(snapshot.header.stamp)}'
         np.savez_compressed(str(prefix)+'.npz', points=records, frame_id=snapshot.frame_id)
-        metadata = {'window': state['window'], 'image_stamp_ns': stamp_ns(snapshot.header.stamp),
-                    'cloud_stamp_ns': snapshot.cloud_stamp_ns, 'pose_stamp_ns': snapshot.pose_stamp_ns,
-                    'frame_id': snapshot.frame_id, 'regions': annotations,
-                    'labels': {str(value): key for key, value in self.node.label_ids.items()}}
-        Path(str(prefix)+'.json').write_text(json.dumps(metadata, indent=2, ensure_ascii=False)+'\n')
+        Path(str(prefix)+'.json').write_text(json.dumps(event, indent=2, ensure_ascii=False)+'\n')
         image = snapshot.image.copy()
         for (u, v), color in zip(snapshot.uv, records['rgb']):
             color = int(color)
             image[v, u] = [color & 255, (color >> 8) & 255, (color >> 16) & 255]
-        for item in annotations:
-            h, w = image.shape[:2]
-            box = (np.array(item['bbox']) * [w/1000, h/1000, w/1000, h/1000]).astype(int)
-            cv2.rectangle(image, tuple(box[:2]), tuple(box[2:]), (0, 255, 0), 1)
-            cv2.putText(image, item['label'], (box[0], max(15, box[1]-5)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv2.putText(image, f'Scene {event["event_id"]} | label_id={event["label_id"]}', (8, 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         if not cv2.imwrite(str(prefix)+'.png', image):
             raise OSError('Could not save event projection')
 
@@ -264,24 +258,24 @@ def main(argv=None):
     parameters = read_parameters(args.params_file)
     if args.task:
         parameters['task'] = args.task
-    if args.grounding_tokens is not None:
-        parameters['grounding_max_new_tokens'] = args.grounding_tokens
+    if args.description_tokens is not None:
+        parameters['description_max_new_tokens'] = args.description_tokens
     parameters['start_worker'] = False
     bag = BagInput(args.bag)
     settings = StreamerSettings.load(parameters.get('robot_agent_root', DEFAULT_ROOT),
         parameters.get('onestreamer_config', 'configs/onestreamer-fast.json'),
         parameters.get('worker_python', ''), parameters.get('model_path', ''),
-        parameters.get('grounding_max_new_tokens', 256))
+        parameters.get('description_max_new_tokens', 128))
     VoxelSemanticMap(args.voxel_size, parameters.get('frame_id', 'world'))
-    output = Path(args.output or f'data/maps/{bag.path.stem}_semantic').expanduser().resolve()
+    output = Path(args.output or f'data/maps/{bag.path.stem}_scene').expanduser().resolve()
     output.mkdir(parents=True, exist_ok=False)
     node = worker = mapper = None
     started = time.monotonic()
     report = {'bag': str(bag.path), 'output': str(output), 'completed': False,
-              'voxel_size_m': args.voxel_size, 'method': 'proactive_response_box_depth_band',
-              'fusion': 'one_class_vote_per_voxel_per_event; unknown_never_overwrites_known',
+              'voxel_size_m': args.voxel_size, 'method': 'proactive_scene_description',
+              'fusion': 'retain_all_scene_event_links_per_voxel; primary_label_for_color_only',
               'config': parameters, 'streamer': {'sample_fps': settings.sample_fps,
-                  'inference': settings.inference, 'grounding_tokens': settings.grounding_tokens,
+                  'inference': settings.inference,
                   'model': str(settings.model), 'python': str(settings.python)}}
     (output / 'configuration.json').write_text(json.dumps(report, indent=2, ensure_ascii=False)+'\n')
     rclpy.init(domain_id=args.ros_domain_id)
@@ -321,7 +315,7 @@ def main(argv=None):
     finally:
         if mapper is not None:
             labels = {value: key for key, value in mapper.node.label_ids.items()}
-            report.update(export_map(output, mapper.map, labels))
+            report.update(export_map(output, mapper.map, labels, mapper.scene_events))
             report.update(counts=dict(mapper.counts), skip_reasons=dict(mapper.skip_reasons),
                           frame_id=mapper.map.frame_id, events=mapper.map.events,
                           input_points=mapper.map.input_points,

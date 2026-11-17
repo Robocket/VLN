@@ -1,10 +1,7 @@
-"""Camera projection and conservative box-to-point semantic association."""
+"""Camera projection and scene-description labels for complete visible point clouds."""
 
 from dataclasses import dataclass
 import hashlib
-import json
-import math
-import re
 
 import cv2
 import numpy as np
@@ -12,20 +9,34 @@ import numpy as np
 
 SEMANTIC_POINT_DTYPE = np.dtype([
     ('x', '<f4'), ('y', '<f4'), ('z', '<f4'), ('rgb', '<u4'),
-    ('label_id', '<u4'), ('instance_id', '<u4'),
+    ('label_id', '<u4'), ('event_id', '<u4'),
 ])
 
 
 DEFAULT_TASK = ('What objects are visible in the current image? Report the first clear view, '
                 'then respond only for newly visible objects or a clear semantic scene change.')
-GROUNDING_FORMAT = (
-    'Locate clearly visible physical objects in this image. Output exactly one JSON object in this schema: '
-    '{"objects":[{"label":"chair","bbox":[100,200,500,900]}]}. '
-    'Use only evidence in this image. '
-    'bbox coordinates are [left,top,right,bottom], normalized to integers from 0 to 1000 '
-    'relative to that entire image. Use short object class names. '
-    'Never invent objects, coordinates, or objects outside the image. '
-    'If no object can be grounded, output {"objects":[]}. Do not use streaming control markers.')
+
+
+@dataclass(frozen=True)
+class SceneDescription:
+    text: str
+    token_ids: tuple
+    token_text: str
+    token_source: str
+
+
+def parse_scene_response(result):
+    text, raw, tokens = result.get('response'), result.get('raw'), result.get('tokens')
+    if not isinstance(text, str) or not text.strip() or len(text) > 65536:
+        raise ValueError('A nonempty bounded scene description is required')
+    if not isinstance(raw, str) or '</Response>' not in raw or raw.split('</Response>', 1)[1].strip() != text:
+        raise ValueError('Scene text does not match the original proactive Response')
+    if not isinstance(tokens, dict) or tokens.get('text') != raw or tokens.get('triggered') is not True:
+        raise ValueError('Scene label requires the original triggered model token payload')
+    ids = tokens.get('ids')
+    if not isinstance(ids, list) or not ids or len(ids) > 4096 or any(type(x) is not int or x < 0 for x in ids):
+        raise ValueError('Scene token IDs must be a nonempty list of nonnegative integers')
+    return SceneDescription(text, tuple(ids), raw, str(tokens.get('source', 'model.generate')))
 
 
 def rotation_matrix(q):
@@ -41,37 +52,10 @@ def rotation_matrix(q):
     ])
 
 
-@dataclass(frozen=True)
-class Region:
-    label: str
-    bbox: tuple
-
-
-def parse_regions(text):
-    if not isinstance(text, str) or len(text) > 65536:
-        raise ValueError('Grounding response must be a bounded JSON string')
-    text = text.strip()
-    if text.startswith('```'):
-        text = re.sub(r'^```(?:json)?\s*', '', text)
-        text = re.sub(r'\s*```$', '', text)
-    data = json.loads(text)
-    if not isinstance(data, dict) or not isinstance(data.get('objects'), list) or len(data['objects']) > 32:
-        raise ValueError('Expected objects array with at most 32 grounded regions')
-    result = []
-    for item in data['objects']:
-        if not isinstance(item, dict):
-            raise ValueError('Each region must be an object')
-        label, box = item.get('label'), item.get('bbox')
-        if not isinstance(label, str) or not label.strip() or len(label) > 80:
-            raise ValueError('Invalid semantic label')
-        if not isinstance(box, list) or len(box) != 4 or any(
-                isinstance(x, bool) or not isinstance(x, (float, int)) or not math.isfinite(x)
-                or x < 0 or x > 1000 for x in box):
-            raise ValueError('bbox must contain four finite coordinates in [0,1000]')
-        if box[0] >= box[2] or box[1] >= box[3]:
-            raise ValueError('bbox must have positive width and height')
-        result.append(Region(label.strip().casefold(), tuple(float(x) for x in box)))
-    return result
+def world_to_camera(points, position, orientation, camera_to_body_rotation, camera_to_body_translation):
+    """Inverse of VLN's original p_world = R_odom @ (R_cb @ p_camera + t_cb) + t_odom."""
+    body = (points - np.asarray(position)) @ rotation_matrix(orientation)
+    return (body - np.asarray(camera_to_body_translation)) @ np.asarray(camera_to_body_rotation).reshape(3, 3)
 
 
 def project_visible(points, camera_points, image, k, distortion, model,
@@ -104,39 +88,6 @@ def project_visible(points, camera_points, image, k, distortion, model,
     return points[visible], uv[visible], depth[visible]
 
 
-def associate_regions(points, uv, depth, width, height, regions, label_ids,
-                      depth_band=0.3, min_points=3):
-    """Weak labels: boxes plus a depth band, not instance segmentation masks."""
-    labels = np.zeros(len(points), dtype=np.uint32)
-    instances = np.zeros(len(points), dtype=np.uint32)
-    annotations = []
-    ordered = sorted(enumerate(regions, 1), key=lambda pair:
-                     (pair[1].bbox[2]-pair[1].bbox[0]) * (pair[1].bbox[3]-pair[1].bbox[1]))
-    for instance, region in ordered:
-        box = np.array(region.bbox) * [width/1000, height/1000, width/1000, height/1000]
-        x1, y1, x2, y2 = box
-        inside = ((uv[:, 0] >= x1) & (uv[:, 0] < x2) & (uv[:, 1] >= y1)
-                  & (uv[:, 1] < y2) & (instances == 0))
-        cx, cy = (x1+x2)/2, (y1+y2)/2
-        center = (inside & (np.abs(uv[:, 0]-cx) <= (x2-x1)*0.2)
-                  & (np.abs(uv[:, 1]-cy) <= (y2-y1)*0.2))
-        selected_depths = depth[center if np.any(center) else inside]
-        if len(selected_depths) == 0:
-            continue
-        selected = inside & (np.abs(depth - np.median(selected_depths)) <= depth_band)
-        if np.count_nonzero(selected) < min_points:
-            continue
-        if region.label not in label_ids:
-            label_ids[region.label] = len(label_ids) + 1
-        labels[selected] = label_ids[region.label]
-        instances[selected] = instance
-        annotations.append({'label': region.label, 'label_id': label_ids[region.label],
-                            'instance_id': instance, 'bbox': list(region.bbox),
-                            'point_count': int(np.count_nonzero(selected)),
-                            'centroid': np.median(points[selected], axis=0).tolist()})
-    return labels, instances, annotations
-
-
 def label_color(label):
     if not label:
         return 0x808080
@@ -145,15 +96,19 @@ def label_color(label):
     return (r << 16) | (g << 8) | b
 
 
-def semantic_records(snapshot, regions, label_ids, depth_band=0.3, min_points=3):
-    """Shared online/offline annotation; coordinates stay in the input world frame."""
-    height, width = snapshot.image.shape[:2]
-    labels, instances, annotations = associate_regions(
-        snapshot.points, snapshot.uv, snapshot.depth, width, height, regions,
-        label_ids, depth_band, min_points)
-    colors = {value: label_color(key) for key, value in label_ids.items()}
-    records = np.empty(len(labels), dtype=SEMANTIC_POINT_DTYPE)
+def scene_records(snapshot, description, label_ids, event_id):
+    """Every camera-visible point receives the same complete scene description."""
+    if description.text not in label_ids:
+        label_ids[description.text] = len(label_ids) + 1
+    label_id = label_ids[description.text]
+    records = np.empty(len(snapshot.points), dtype=SEMANTIC_POINT_DTYPE)
     records['x'], records['y'], records['z'] = snapshot.points.T
-    records['label_id'], records['instance_id'] = labels, instances
-    records['rgb'] = np.array([colors.get(int(x), 0x808080) for x in labels], dtype=np.uint32)
-    return records, annotations
+    records['label_id'] = label_id
+    records['event_id'] = event_id
+    records['rgb'] = label_color(description.text)
+    event = {'event_id': event_id, 'label_id': label_id, 'description': description.text,
+             'token_ids': list(description.token_ids), 'token_text': description.token_text,
+             'token_source': description.token_source, 'point_count': len(records),
+             'centroid': np.median(snapshot.points, axis=0).tolist() if len(records) else None,
+             'scope': 'all_camera_visible_points'}
+    return records, event

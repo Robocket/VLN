@@ -22,12 +22,14 @@ class ScriptedClient:
 
     def infer(self, request):
         self.requests.append(request)
-        response = None if len(self.requests) == 1 else json.dumps({
-            'objects': [{'label': 'chair', 'bbox': [100, 100, 900, 900]}]})
+        response = None if len(self.requests) == 1 else 'A room with desks and chairs.'
         return {'ok': True, 'question': request['question'],
                 'source_start_ns': request['frames'][0]['stamp_ns'],
                 'source_end_ns': request['frames'][-1]['stamp_ns'],
-                'raw': '</Silence>' if response is None else '</Response> chair',
+                'raw': '</Silence>' if response is None else '</Response>'+response,
+                'tokens': {'ids': [151670, 41, 42, 151645], 'source': 'model.generate',
+                           'triggered': response is not None,
+                           'text': '</Silence>' if response is None else '</Response>'+response},
                 'response': response}
 
     def close(self):
@@ -85,9 +87,14 @@ def test_complete_bag_waits_for_each_window_flushes_tail_and_only_fuses_real_res
         assert [len(x['frames']) for x in client.requests] == [4, 4, 1]
         assert {x['version'] for x in client.requests} == {0}, 'Do not force periodic session resets'
         assert len(mapper.map.voxels) == 3
-        records = mapper.map.records({1: 'chair'})
+        records = mapper.map.records({1: 'A room with desks and chairs.'})
         assert set(records['label_id']) == {1}
         assert set(records['observations']) == {2}
+        offsets, event_ids = mapper.map.event_links()
+        assert event_ids.tolist() == [1, 2]*3
+        assert offsets.tolist() == [0, 2, 4, 6]
+        assert mapper.scene_events[1]['token_ids'] == [151670, 41, 42, 151645]
+        assert mapper.scene_events[2]['description'] == 'A room with desks and chairs.'
         assert len(list((output/'events').glob('*.npz'))) == 2
         states = [json.loads(line) for line in (output/'states.jsonl').read_text().splitlines()]
         assert states[-1]['source_cloud_ns'] == 1_810_000_000

@@ -25,14 +25,15 @@ from rclpy.time import Time
 from sensor_msgs.msg import CameraInfo, Image, PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Header, String
-from vln_interfaces.msg import ObjectCoordinates
+from vln_interfaces.msg import ObjectCoordinate, ObjectCoordinates
 from vln_navigation.goal_selector import GoalSelector
 from vln_perception.semantic_node import SemanticNode
 
 
 class ScriptedWorker:
     def __init__(self, path):
-        self.response = json.dumps({'objects': [{'label': 'bottle', 'bbox': [200, 200, 800, 800]}]})
+        self.response = 'A scene containing a bottle and a desk.'
+        self.token_ids = [151670, 24, 52, 151645]
         self.offset = 0
         self.gate = threading.Event()
         self.gate.set()
@@ -50,6 +51,8 @@ class ScriptedWorker:
                               'raw': '</Response>' + response if response is not None else '</Silence>',
                               'source_start_ns': item['frames'][0]['stamp_ns'],
                               'source_end_ns': item['frames'][-1]['stamp_ns'] + owner.offset}
+                    result['tokens'] = {'ids': owner.token_ids, 'text': result['raw'],
+                                        'source': 'model.generate', 'triggered': response is not None}
                     self.wfile.write(json.dumps(result).encode() + b'\n')
                     self.wfile.flush()
 
@@ -96,6 +99,7 @@ def graph(tmp_path, request):
         'instruction': harness.create_publisher(String, '/vln/instruction', 10),
         'task': harness.create_publisher(String, '/semantic/task', 10),
         'goal': harness.create_publisher(PoseStamped, '/vln_goal', 10),
+        'coords': harness.create_publisher(ObjectCoordinates, '/object/absolute_coords_list', 10),
     }
 
     def wait(predicate, timeout=6.0):
@@ -154,29 +158,34 @@ def graph(tmp_path, request):
 def test_response_labels_camera_visible_cloud_and_preserves_world_coordinates(graph):
     harness, semantic, worker, received, pubs, wait, pump, frame, batch = graph
     last = batch()
-    wait(lambda: bool(received['clouds']) and bool(received['coords']) and bool(received['labels']))
+    wait(lambda: bool(received['clouds']) and bool(received['labels']))
     cloud = received['clouds'][-1]
     assert cloud.header.frame_id == 'world'
     assert cloud.header.stamp.sec * 1_000_000_000 + cloud.header.stamp.nanosec == last
     points = point_cloud2.read_points(cloud)
     assert len(points) == 3
     assert set(points['label_id']) == {1}
-    assert set(points['instance_id']) == {1}
-    assert received['coords'][-1].objects[0].class_name == 'bottle'
-    assert received['coords'][-1].objects[0].point.x == pytest.approx(2.0)
+    assert set(points['event_id']) == {1}
+    assert not received['coords']
+    assert np.allclose(points['x'], 2.0)
     legend = json.loads(received['labels'][-1].data)
     assert legend['labeled_points'] == 3
-    assert legend['labels'] == {'0': 'unlabeled', '1': 'bottle'}
+    assert legend['labels'] == {'0': 'unlabeled', '1': worker.response}
+    assert legend['token_ids'] == worker.token_ids
+    assert legend['description'] == worker.response
+    assert legend['point_count'] == legend['labeled_points'] == legend['visible_points']
+    assert 'grounding_prompt' not in worker.requests[0]
     assert len(worker.requests) == 1 and len(worker.requests[0]['frames']) == 4
 
 
-def test_silence_and_invalid_grounding_do_not_publish_labels(graph):
+def test_silence_and_missing_tokens_do_not_publish_labels(graph):
     harness, semantic, worker, received, pubs, wait, pump, frame, batch = graph
     worker.response = None
     batch()
     wait(lambda: len(received['states']) == 1)
     assert not received['clouds'] and not received['coords']
     worker.response = 'A bottle is visible, somewhere.'
+    worker.token_ids = []
     batch()
     wait(lambda: len(received['states']) == 2)
     assert 'annotation_error' in json.loads(received['states'][-1].data)
@@ -190,8 +199,9 @@ def test_delayed_response_uses_captured_cloud_not_latest_cloud(graph):
     wait(lambda: bool(worker.requests))
     frame(distance=3.0)
     worker.gate.set()
-    wait(lambda: bool(received['coords']) and bool(received['clouds']))
-    assert received['coords'][-1].objects[0].point.x == pytest.approx(2.0)
+    wait(lambda: bool(received['clouds']))
+    assert np.allclose(point_cloud2.read_points(received['clouds'][-1])['x'], 2.0)
+    assert not received['coords']
     header = received['clouds'][-1].header
     assert header.stamp.sec * 1_000_000_000 + header.stamp.nanosec == stamp
 
@@ -244,8 +254,8 @@ def test_calibrated_tf_projects_points_in_the_image_optical_frame(graph):
     broadcaster.sendTransform(transform)
     wait(lambda: semantic.tf_buffer.can_transform('camera_color_optical_frame', 'world', Time()))
     batch()
-    wait(lambda: bool(received['coords']))
-    assert received['coords'][-1].objects[0].point.x == pytest.approx(2.0)
+    wait(lambda: bool(received['clouds']))
+    assert np.allclose(point_cloud2.read_points(received['clouds'][-1])['x'], 2.0)
 
 
 def test_clock_rewind_resets_session_and_keeps_sensor_subscriptions_working(graph):
@@ -260,7 +270,7 @@ def test_clock_rewind_resets_session_and_keeps_sensor_subscriptions_working(grap
     assert np.allclose(points['x'], 3.0)
 
 
-def test_proactive_semantics_to_goal_and_obstacle_avoiding_path(graph, tmp_path):
+def test_scene_labels_are_not_object_goals_and_external_object_goals_still_plan(graph, tmp_path):
     harness, semantic, worker, received, pubs, wait, pump, frame, batch = graph
     executable = FilePath(get_package_prefix('vln_planner')) / 'lib/vln_planner/a_star_planner_node'
     with (tmp_path / 'planner.log').open('w') as log:
@@ -273,6 +283,13 @@ def test_proactive_semantics_to_goal_and_obstacle_avoiding_path(graph, tmp_path)
                  and pubs['goal'].get_subscription_count() >= 1)
             pump()
             batch(wall=True)
+            wait(lambda: bool(received['clouds']))
+            pump()
+            assert not received['coords']
+            obj = ObjectCoordinate(class_name='bottle')
+            obj.point.x = 2.0
+            pubs['coords'].publish(ObjectCoordinates(
+                header=Header(stamp=harness.get_clock().now().to_msg(), frame_id='world'), objects=[obj]))
             wait(lambda: bool(received['coords']))
             pump()
             pubs['instruction'].publish(String(data='bottle'))

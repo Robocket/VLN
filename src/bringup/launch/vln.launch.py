@@ -19,7 +19,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='false'),
         DeclareLaunchArgument('enable_perception', default_value='true'),
         DeclareLaunchArgument('start_onestreamer_worker', default_value='true'),
-        DeclareLaunchArgument('enable_goal_selector', default_value='true'),
+        DeclareLaunchArgument('enable_goal_selector', default_value='false'),
         DeclareLaunchArgument('enable_planner', default_value='true'),
         DeclareLaunchArgument('use_rviz', default_value='false'),
         Node(package='vln_perception', executable='streaming_semantics', output='screen',

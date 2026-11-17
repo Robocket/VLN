@@ -1,4 +1,4 @@
-"""World-frame semantic voxel fusion and portable point cloud export."""
+"""World-frame voxel fusion preserving every associated scene description event."""
 
 from collections import Counter
 import json
@@ -17,7 +17,7 @@ MAP_DTYPE = np.dtype([
 
 
 class VoxelSemanticMap:
-    """One class vote per voxel per event, so dense scans cannot dominate a label."""
+    """Retain all scene events; select a primary label for display by event votes."""
 
     def __init__(self, voxel_size=0.05, frame_id='world'):
         if not np.isfinite(voxel_size) or voxel_size <= 0:
@@ -26,11 +26,21 @@ class VoxelSemanticMap:
             raise ValueError('A nonempty world frame is required')
         self.voxel_size, self.frame_id = voxel_size, frame_id
         self.voxels = {}
+        self.voxel_events = {}
+        self.seen_events = set()
         self.events = self.input_points = self.input_labeled_points = 0
 
     def add(self, records, frame_id):
         if frame_id != self.frame_id:
             raise ValueError(f'Cannot combine frames {frame_id!r} and {self.frame_id!r}')
+        event_ids = np.unique(records['event_id'])
+        if not len(records):
+            return
+        if len(event_ids) != 1 or int(event_ids[0]) <= 0:
+            raise ValueError('Each cloud must have one positive scene event_id')
+        event_id = int(event_ids[0])
+        if event_id in self.seen_events:
+            return
         xyz = np.column_stack([records[k] for k in ('x', 'y', 'z')]).astype(float)
         finite = np.isfinite(xyz).all(axis=1)
         xyz, labels = xyz[finite], records['label_id'][finite]
@@ -54,11 +64,13 @@ class VoxelSemanticMap:
             if current is None or rank(candidate) > rank(current):
                 candidates[key] = candidate
         for key, (label, count, center) in candidates.items():
+            self.voxel_events.setdefault(key, set()).add(event_id)
             votes = self.voxels.setdefault(key, {})
             if label not in votes:
                 votes[label] = [0, np.zeros(3)]
             votes[label][0] += 1
             votes[label][1] += center
+        self.seen_events.add(event_id)
         self.events += 1
         self.input_points += len(xyz)
         self.input_labeled_points += int(np.count_nonzero(labels))
@@ -71,10 +83,18 @@ class VoxelSemanticMap:
             winner = min(candidates, key=lambda label: (-votes[label][0], label))
             count, total = votes[winner]
             if winner and winner not in labels:
-                raise ValueError(f'Missing class name for label {winner}')
+                raise ValueError(f'Missing scene description for label {winner}')
             result[index] = (*list(total / count), label_color(labels[winner]) if winner else 0x808080,
                              winner, sum(value[0] for value in votes.values()), count)
         return result
+
+    def event_links(self):
+        """CSR arrays align with records(); event metadata retains the exact token IDs."""
+        offsets, event_ids = [0], []
+        for key in sorted(self.voxels):
+            event_ids.extend(sorted(self.voxel_events[key]))
+            offsets.append(len(event_ids))
+        return np.array(offsets, dtype=np.uint64), np.array(event_ids, dtype=np.uint32)
 
 
 def write_ply(path, records):
@@ -139,13 +159,13 @@ def write_preview(path, records, labels, voxel_size):
         y = 110 + row * 24
         cv2.rectangle(image, (980, y-12), (995, y+3),
                       (color & 255, (color >> 8) & 255, (color >> 16) & 255), -1)
-        cv2.putText(image, f'{labels.get(label, "unlabeled")[:32]}: {count}', (1004, y),
+        cv2.putText(image, f'{label}: {labels.get(label, "unlabeled")[:28]} ({count})', (1004, y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (30, 30, 30), 1)
     if not cv2.imwrite(str(path), image):
         raise OSError(f'Could not write preview: {path}')
 
 
-def export_map(directory, semantic_map, labels):
+def export_map(directory, semantic_map, labels, scene_events=None):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     records = semantic_map.records(labels)
@@ -153,12 +173,21 @@ def export_map(directory, semantic_map, labels):
     for name, points in [('semantic_map', records), ('semantic_labeled', labeled)]:
         write_ply(directory / f'{name}.ply', points)
         write_pcd(directory / f'{name}.pcd', points)
+    offsets, event_ids = semantic_map.event_links()
     np.savez_compressed(directory / 'semantic_map.npz', points=records,
-                        frame_id=semantic_map.frame_id, voxel_size=semantic_map.voxel_size)
+                        frame_id=semantic_map.frame_id, voxel_size=semantic_map.voxel_size,
+                        scene_event_offsets=offsets, scene_event_ids=event_ids)
+    if scene_events is not None:
+        if set(int(x) for x in event_ids) - set(scene_events):
+            raise ValueError('Map contains scene event IDs without token metadata')
+        (directory / 'scene_events.json').write_text(json.dumps(
+            {str(key): value for key, value in sorted(scene_events.items())},
+            indent=2, ensure_ascii=False)+'\n')
     (directory / 'labels.json').write_text(json.dumps(
         {'0': 'unlabeled', **{str(key): value for key, value in sorted(labels.items()) if key}},
         indent=2, ensure_ascii=False) + '\n')
     write_preview(directory / 'semantic_map_xy.png', records, labels, semantic_map.voxel_size)
     return {'map_points': len(records), 'labeled_map_points': len(labeled),
-            'class_point_counts': {labels.get(key, 'unlabeled'): count for key, count in
+            'scene_event_links': len(event_ids),
+            'scene_label_point_counts': {labels.get(key, 'unlabeled'): count for key, count in
                                    sorted(Counter(int(x) for x in records['label_id']).items())}}

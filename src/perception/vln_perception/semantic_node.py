@@ -1,4 +1,4 @@
-"""Proactive OneStreamer responses label synchronized camera-visible point clouds."""
+"""Attach unmodified proactive scene descriptions/tokens to all camera-visible points."""
 
 import base64
 from collections import deque
@@ -22,10 +22,9 @@ from sensor_msgs.msg import CameraInfo, Image, PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Header, String
 from visualization_msgs.msg import Marker, MarkerArray
-from vln_interfaces.msg import ObjectCoordinate, ObjectCoordinates
 
 from .projection import (
-    DEFAULT_TASK, GROUNDING_FORMAT, parse_regions, project_visible, rotation_matrix, semantic_records,
+    DEFAULT_TASK, parse_scene_response, project_visible, rotation_matrix, scene_records, world_to_camera,
 )
 from .streamer import DEFAULT_ROOT, DEFAULT_SOCKET, SocketClient, StreamerSettings, WorkerProcess
 
@@ -51,7 +50,7 @@ class SemanticNode(Node):
         super().__init__('streaming_semantic_node', **kwargs)
         self.declare_parameters('', [
             ('robot_agent_root', DEFAULT_ROOT), ('onestreamer_config', 'configs/onestreamer-fast.json'),
-            ('worker_python', ''), ('model_path', ''), ('grounding_max_new_tokens', 256),
+            ('worker_python', ''), ('model_path', ''), ('description_max_new_tokens', 128),
             ('socket_path', DEFAULT_SOCKET), ('start_worker', True), ('startup_timeout', 120.0),
             ('color_topic', '/camera/color/image_raw'), ('camera_info_topic', '/camera/color/camera_info'),
             ('cloud_topic', '/cloud_registered'), ('odom_topic', '/Odometry'), ('frame_id', 'world'),
@@ -61,13 +60,13 @@ class SemanticNode(Node):
             ('camera_to_body_rotation', [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0]),
             ('camera_to_body_translation', [0.0, 0.0, 0.0]),
             ('near_clip', 0.05), ('far_clip', 30.0), ('visibility_cell_size', 2),
-            ('occlusion_tolerance', 0.1), ('foreground_depth_band', 0.3), ('min_region_points', 3),
+            ('occlusion_tolerance', 0.1),
             ('task', DEFAULT_TASK), ('task_topic', '/semantic/task'),
         ])
         self._validate()
         self.settings = settings or StreamerSettings.load(
             *[self.param(k) for k in ('robot_agent_root', 'onestreamer_config', 'worker_python',
-                                      'model_path', 'grounding_max_new_tokens')])
+                                      'model_path', 'description_max_new_tokens')])
         self.process = None
         self.client = client or SocketClient(self.param('socket_path'), self.settings.timeout,
                                              self.param('startup_timeout'))
@@ -81,6 +80,7 @@ class SemanticNode(Node):
         self.task = self.param('task')
         self.results = queue.SimpleQueue()
         self.label_ids = {}
+        self.event_counter = 0
         self.thread = None
         self.tf_buffer = self.tf_listener = None
         if self.param('transform_mode') == 'tf':
@@ -91,8 +91,7 @@ class SemanticNode(Node):
         self.labels_pub = self.create_publisher(String, '/semantic/labels', 1)
         self.state_pub = self.create_publisher(String, '/semantic/state', 10)
         self.image_pub = self.create_publisher(Image, '/semantic/projection', 1)
-        self.coords_pub = self.create_publisher(ObjectCoordinates, '/object/absolute_coords_list', 1)
-        self.marker_pub = self.create_publisher(MarkerArray, '/object/markers', 1)
+        self.marker_pub = self.create_publisher(MarkerArray, '/semantic/markers', 1)
         self.create_subscription(PointCloud2, self.param('cloud_topic'), lambda msg: self.clouds.append(msg),
                                  qos_profile_sensor_data)
         self.create_subscription(Odometry, self.param('odom_topic'), lambda msg: self.odoms.append(msg),
@@ -111,13 +110,13 @@ class SemanticNode(Node):
                 raise
         self.get_logger().info(
             f'OneStreamer: {self.settings.sample_fps:g} fps, four-frame batches; '
-            'semantic annotation only on grounded Response events')
+            'attach each proactive description to its entire visible point cloud')
 
     def param(self, key):
         return self.get_parameter(key).value
 
     def _validate(self):
-        for key in ('fx', 'fy', 'sync_tolerance', 'startup_timeout', 'foreground_depth_band'):
+        for key in ('fx', 'fy', 'sync_tolerance', 'startup_timeout'):
             if not np.isfinite(self.param(key)) or self.param(key) <= 0:
                 raise ValueError(f'{key} must be finite and positive')
         if self.param('transform_mode') not in ('tf', 'odometry'):
@@ -128,8 +127,8 @@ class SemanticNode(Node):
             raise ValueError('Invalid projection depth limits')
         if not self.param('task').strip() or len(self.param('task')) > 4096:
             raise ValueError('task must contain between 1 and 4096 characters')
-        if min(self.param(k) for k in ('image_width', 'image_height', 'visibility_cell_size', 'min_region_points')) < 1:
-            raise ValueError('Image sizes, visibility cells and min_region_points must be positive')
+        if min(self.param(k) for k in ('image_width', 'image_height', 'visibility_cell_size')) < 1:
+            raise ValueError('Image sizes and visibility cells must be positive')
         rotation = np.array(self.param('camera_to_body_rotation')).reshape(3, 3)
         translation = np.array(self.param('camera_to_body_translation'))
         if (not np.isfinite(rotation).all() or not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-6)
@@ -208,11 +207,10 @@ class SemanticNode(Node):
             odom = self.nearest(self.odoms, timestamp)
             if odom.header.frame_id != cloud.header.frame_id:
                 raise ValueError('Odometry and cloud must use the same world frame')
-            rotation = rotation_matrix(odom.pose.pose.orientation)
             p = odom.pose.pose.position
-            body = (points - [p.x, p.y, p.z]) @ rotation
-            camera_rotation = np.array(self.param('camera_to_body_rotation')).reshape(3, 3)
-            camera_points = (body - self.param('camera_to_body_translation')) @ camera_rotation
+            camera_points = world_to_camera(points, [p.x, p.y, p.z], odom.pose.pose.orientation,
+                                             self.param('camera_to_body_rotation'),
+                                             self.param('camera_to_body_translation'))
             pose_stamp = stamp_ns(odom.header.stamp)
         if rectification is not None:
             camera_points = camera_points @ rectification.T
@@ -254,7 +252,7 @@ class SemanticNode(Node):
             return
         batch, self.window = self.window, []
         generation = self.generation
-        request = {'question': self.task, 'grounding_prompt': GROUNDING_FORMAT, 'version': generation,
+        request = {'question': self.task, 'version': generation,
                    'sample_fps': self.settings.sample_fps,
                    'frames': [{'stamp_ns': stamp_ns(item.header.stamp), 'jpeg': jpeg} for item, jpeg in batch]}
         self.busy = True
@@ -288,60 +286,52 @@ class SemanticNode(Node):
                       or result.get('question') != request['question']):
                     raise ValueError('OneStreamer result does not match the captured frame window')
                 elif result.get('response') is not None:
-                    regions = parse_regions(result['response'])
-                    self.annotate(snapshot, regions, generation)
-                    state['annotation_regions'] = len(regions)
+                    description = parse_scene_response(result)
+                    records, event = self.annotate(snapshot, description, generation)
+                    state['scene_label_id'] = event['label_id']
+                    state['scene_event_id'] = event['event_id']
+                    state['labeled_points'] = len(records)
             except Exception as exc:
                 state['annotation_error'] = str(exc)
                 self.get_logger().error(f'Semantic annotation rejected: {exc}')
             self.state_pub.publish(String(data=json.dumps(state, ensure_ascii=False)))
 
-    def annotate(self, snapshot, regions, generation):
-        image = snapshot.image.copy()
-        height, width = image.shape[:2]
-        records, annotations = semantic_records(
-            snapshot, regions, self.label_ids,
-            self.param('foreground_depth_band'), self.param('min_region_points'))
+    def annotate(self, snapshot, description, generation):
+        self.event_counter += 1
+        records, event = scene_records(snapshot, description, self.label_ids, self.event_counter)
         header = deepcopy(snapshot.header)
         header.frame_id = snapshot.frame_id
+        event.update(stamp_ns=stamp_ns(snapshot.header.stamp), frame_id=snapshot.frame_id,
+                     image_frame_id=snapshot.header.frame_id, source_cloud_ns=snapshot.cloud_stamp_ns,
+                     source_pose_ns=snapshot.pose_stamp_ns, generation=generation,
+                     labels={'0': 'unlabeled', **{str(value): key for key, value in self.label_ids.items()}},
+                     method='proactive_scene_description', visible_points=len(records), labeled_points=len(records))
         fields = [PointField(name=name, offset=i*4, datatype=(PointField.FLOAT32 if i < 3 else PointField.UINT32),
                              count=1) for i, name in enumerate(records.dtype.names)]
         cloud = PointCloud2(header=header, height=1, width=len(records), fields=fields, is_bigendian=False,
                             point_step=24, row_step=len(records)*24, data=records.tobytes(), is_dense=True)
-        coords = ObjectCoordinates(header=deepcopy(header))
         markers = MarkerArray(markers=[Marker(action=Marker.DELETEALL)])
-        for index, item in enumerate(annotations):
-            obj = ObjectCoordinate(class_name=item['label'])
-            obj.point.x, obj.point.y, obj.point.z = item['centroid']
-            coords.objects.append(obj)
-            marker = Marker(header=header, ns='semantic_objects', id=index, type=Marker.TEXT_VIEW_FACING,
-                            action=Marker.ADD, text=item['label'])
-            marker.pose.position = deepcopy(obj.point)
-            marker.pose.position.z += 0.2
+        if event['centroid'] is not None:
+            marker = Marker(header=header, ns='scene_descriptions', id=0, type=Marker.TEXT_VIEW_FACING,
+                            action=Marker.ADD, text=description.text)
+            marker.pose.position.x, marker.pose.position.y, marker.pose.position.z = event['centroid']
             marker.pose.orientation.w = 1.0
             marker.scale.z = 0.2
             marker.color.r = marker.color.g = marker.color.b = marker.color.a = 1.0
             markers.markers.append(marker)
-            box = np.array(item['bbox']) * [width/1000, height/1000, width/1000, height/1000]
-            x1, y1, x2, y2 = box.astype(int)
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
-            cv2.putText(image, item['label'], (x1, max(12, y1-4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+        image = snapshot.image.copy()
         for (u, v), color in zip(snapshot.uv, records['rgb']):
             color = int(color)
             image[v, u] = [color & 255, (color >> 8) & 255, (color >> 16) & 255]
+        cv2.putText(image, f'Scene {self.event_counter} | label_id={event["label_id"]}', (8, 20),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         preview = self.bridge.cv2_to_imgmsg(image, 'bgr8')
         preview.header = deepcopy(snapshot.header)
-        legend = {'stamp_ns': stamp_ns(snapshot.header.stamp), 'frame_id': snapshot.frame_id,
-                  'image_frame_id': snapshot.header.frame_id, 'source_cloud_ns': snapshot.cloud_stamp_ns,
-                  'source_pose_ns': snapshot.pose_stamp_ns, 'generation': generation,
-                  'labels': {'0': 'unlabeled', **{str(value): key for key, value in self.label_ids.items()}},
-                  'regions': annotations, 'method': 'vlm_box_depth_band_weak_labels',
-                  'visible_points': len(records), 'labeled_points': int(np.count_nonzero(records['label_id']))}
         self.cloud_pub.publish(cloud)
-        self.labels_pub.publish(String(data=json.dumps(legend, ensure_ascii=False)))
-        self.coords_pub.publish(coords)
+        self.labels_pub.publish(String(data=json.dumps(event, ensure_ascii=False)))
         self.marker_pub.publish(markers)
         self.image_pub.publish(preview)
+        return records, event
 
     def destroy_node(self):
         self.closed = True

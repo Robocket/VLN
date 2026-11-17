@@ -22,18 +22,21 @@ def test_reference_settings_and_existing_parent_assets(tmp_path):
         'ros': {'sample_fps': 8}, 'inference': {'max_frames': 4, 'max_new_tokens': 8, 'temperature': 0.0}}))
     model = tmp_path / 'models/onestreamer/OneStreamer-4B'
     model.mkdir(parents=True)
+    command_config = json.loads((root / 'configs/onestreamer-fast.json').read_text())['inference']
     settings = StreamerSettings.load(root, python=sys.executable)
     assert settings.sample_fps == 8
     assert settings.model == model
     assert settings.inference['max_frames'] == 4
-    assert settings.inference['max_new_tokens'] == 8
-    assert settings.grounding_tokens == 256
+    assert settings.inference['max_new_tokens'] == 128
+    assert command_config['max_new_tokens'] == 8
     assert settings.inference['visual_cache']
     command = settings.command('/tmp/test-worker.sock')
     assert command[:2] == [sys.executable, '-u']
     assert Path(command[2]).name == 'gpu_worker.py'
     assert command[command.index('--integration-dir')+1] == str(integration)
     assert command[command.index('--socket')+1] == '/tmp/test-worker.sock'
+    assert command[command.index('--max-new-tokens')+1] == '128'
+    assert '--grounding-tokens' not in command
 
 
 def test_socket_client_preserves_one_streaming_connection(tmp_path):

@@ -13,11 +13,14 @@
 
 接口包保留 `ObjectCoordinate` 和 `ObjectCoordinates`，用于世界坐标中的物体类别与点。
 传感器输入使用 SensorData QoS，输出和指令使用 reliable / volatile QoS。
-物体坐标使用触发图像的时间戳；录包回放时所有 VLN 节点需设置 `use_sim_time:=true`。
+当前感知输出的是整片可见点云的场景描述与 token，不发布物体坐标。
+场景点云使用触发图像的时间戳；录包回放时所有 VLN 节点需设置 `use_sim_time:=true`。
 
 ## 目标选择
 
-直接输入已标注类别名无需 LLM。自然语言选择可单独安装 `llama-cpp-python` 并配置
+默认 `enable_goal_selector:=false`，因为整句场景描述的中心不代表某个物体位置。
+有外部 ObjectCoordinates 或回放旧物体坐标时，可显式设为 true。
+直接输入外部坐标中的类别名无需 LLM。自然语言选择可单独安装 `llama-cpp-python` 并配置
 `llm_model_path`，按需加载 GGUF；此部分与 OneStreamer 的视频模型环境独立。
 保留 Qwen 对话模板，输出必须是合法物体索引，否则不发布目标。
 `llm_gpu_layers: 0` 使用 CPU，默认 `-1` 请求使用可用 GPU backend；与视觉模型共用 GPU 时需考虑显存。

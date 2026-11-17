@@ -33,8 +33,8 @@ source install/setup.bash
 
 默认复用 `/home/crl/DDD/EGI/robot-agent` 的 OneStreamer 配置、独立 Python 环境和已有权重。
 不启动其摄像头或 ROS 桥接，直接使用本仓库的图像、点云和位姿话题。
-NF4、SDPA、视觉缓存、4 帧窗口、8fps 采样和 8-token 主动响应沿用参考配置。
-只有主动 Response 后，才由同一模型额外对触发帧定位，定位输出预算为 256 token。
+NF4、SDPA、视觉缓存、4 帧窗口和 8fps 采样沿用参考配置。
+回答长度上限设为 128 token，以保留完整场景描述；每个窗口只执行一次流式推理。
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -44,25 +44,26 @@ ros2 launch vln_bringup vln.launch.py
 
 运行前检查 `src/bringup/config/vln.yaml` 的图像内参、相机外参和世界坐标系。
 生产标定可使用 `transform_mode: tf`，通过图像时间戳查询世界坐标到 optical frame 的变换。
-默认 `odometry` 模式使用配置中的相机到机体外参；这些示例值需要与真实安装一致。
+默认 `odometry` 模式保留原 VLN 的相机到机体外参及内参，使用原变换的逆变换将世界点投到画面。
 配置文件可通过 `params_file:=/absolute/path/vln.local.yaml` 覆盖。
 
-OneStreamer 的 Silence / Standby 只发布状态。只有主动 Response 后得到的合法语义框才触发标注：
+OneStreamer 的 Silence / Standby 只发布状态。每次主动 Response 后，完整描述和原始 token
+序列都关联到该画面中全部可见点：
 
-- `/semantic/cloud`：相机视锥内、遮挡过滤后的点云，包含 `rgb`、`label_id`、`instance_id`。
-- `/semantic/labels`：标签字典、区域、点数、世界坐标中心和源时间戳。
+- `/semantic/cloud`：相机视锥内、遮挡过滤后的点云，包含 `rgb`、`label_id`、`event_id`。
+- `/semantic/labels`：完整场景描述、原始 token ID、标签字典、事件 ID 和源时间戳。
 - `/semantic/projection`：标注后的相机视角图。
-- `/object/absolute_coords_list`、`/object/markers`：供目标选择和 RViz 使用。
+- `/semantic/markers`：在 RViz 显示本次完整场景描述。
 - `/semantic/state`：原始主动状态、拒绝原因及时间信息。
 
-标注采用视觉语言框与深度带关联，是弱语义标签，不提供像素级分割或跨帧实例跟踪。
+同一画面的点共享整句场景标签，标签表示视角上下文。
 输出只对应触发窗口最后一帧的快照，不把延迟响应贴到最新点云上。
 详细行为与参数见 [主动点云语义标注](docs/streaming-semantics.md)。
 
 更新持续监视任务：
 
 ```bash
-ros2 topic pub --once /semantic/task std_msgs/msg/String "{data: 'Report when a chair becomes clearly visible for the first time.'}"
+ros2 topic pub --once /semantic/task std_msgs/msg/String "{data: 'What objects are visible in the current image? Report newly visible objects or a clear semantic scene change.'}"
 ```
 
 任务更新会重置流式会话并丢弃旧任务在途结果，是否触发仍由模型决定。
@@ -86,18 +87,20 @@ bash tools/play_bag.sh --loop --exclude-topics /object/absolute_coords_list
 `--image-topic` 选择图像话题，深度窗口可用 `--depth-topic` 和 `--depth-max` 设置话题和显示量程。
 默认 bag 为 `data/vln_0420_ros2`，默认显示 `/camera/color/image_raw`。
 
-同时运行感知时使用 `use_sim_time:=true`，并排除录包内的旧物体坐标，避免覆盖新标注。
+同时运行感知时使用 `use_sim_time:=true`。录包内旧物体坐标可用上述参数排除。
 输入不再需要深度图；投影直接读取点云。录包缺少 CameraInfo 时使用配置中的内参。
 
-另开终端加载相同 ROS 环境：
+当前场景标签不表示物体位置，因此默认关闭目标选择，感知节点不发布物体坐标。
+若有外部 ObjectCoordinates 输入，可用 `enable_goal_selector:=true` 启用原导航接口，
+再另开终端加载相同 ROS 环境：
 
 ```bash
 ros2 run vln_navigation instruction_cli
-# 输入已标注类别名，例如 chair
+# 输入外部坐标提供的类别名，例如 chair
 # 配置 llm_model_path 后可输入自然语言
 ```
 
-无需模型的已有语义坐标回放可使用 `enable_perception:=false`。
+无需模型的已有物体坐标回放可使用 `enable_perception:=false enable_goal_selector:=true`。
 规划器发布 `/planned_path`，不包含路径执行或速度控制器。
 
 ## 离线语义建图
@@ -107,7 +110,8 @@ bash tools/build_semantic_map.sh --bag data/vln_0420_ros2 --output data/maps/my_
 ```
 
 整包逐窗口推理后，将有效触发视角的语义点云按世界坐标合并，保存 PLY、PCD、NPZ、
-标签表和俯视预览。输出目录不能已存在，默认体素分辨率 5 cm；生成物留在 Git 忽略的 `data/`。
+标签表、原始 token 事件表和俯视预览。重叠点保留所有关联事件。
+输出目录不能已存在，默认体素分辨率 5 cm；生成物留在 Git 忽略的 `data/`。
 处理规则和本地实跑结果见[离线建图说明](docs/semantic-mapping.md)。
 
 ## 验证

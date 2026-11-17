@@ -10,8 +10,8 @@ streaming_semantic_node:
     # Empty paths resolve existing assets in robot-agent or its parent EGI workspace.
     worker_python: ''
     model_path: ''
-    # Keep the reference 8-token proactive response; ground the trigger frame separately.
-    grounding_max_new_tokens: 256
+    # One pass: preserve complete proactive descriptions instead of an 8-token truncation.
+    description_max_new_tokens: 128
     startup_timeout: 120.0
     color_topic: /camera/color/image_raw
     camera_info_topic: /camera/color/camera_info
@@ -34,8 +34,6 @@ streaming_semantic_node:
     far_clip: 30.0
     visibility_cell_size: 2
     occlusion_tolerance: 0.1
-    foreground_depth_band: 0.3
-    min_region_points: 3
     task_topic: /semantic/task
     task: >-
       What objects are visible in the current image? Report the first clear view,

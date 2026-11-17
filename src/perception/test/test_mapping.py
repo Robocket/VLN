@@ -7,10 +7,11 @@ from vln_perception.mapping import MAP_DTYPE, VoxelSemanticMap, export_map
 from vln_perception.projection import SEMANTIC_POINT_DTYPE
 
 
-def event(points, labels):
+def event(points, labels, event_id=1):
     records = np.zeros(len(points), dtype=SEMANTIC_POINT_DTYPE)
     records['x'], records['y'], records['z'] = np.array(points).T
     records['label_id'] = labels
+    records['event_id'] = event_id
     return records
 
 
@@ -25,8 +26,8 @@ def test_negative_coordinates_use_floor_and_frames_cannot_be_mixed():
 def test_unknown_never_erases_known_label_and_does_not_shift_its_center():
     mapper = VoxelSemanticMap(1.0)
     mapper.add(event([[0.1, 0.1, 0.1]], [1]), 'world')
-    for _ in range(3):
-        mapper.add(event([[0.9, 0.9, 0.9]], [0]), 'world')
+    for i in range(3):
+        mapper.add(event([[0.9, 0.9, 0.9]], [0], i+2), 'world')
     records = mapper.records({1: 'chair'})
     assert records['label_id'].tolist() == [1]
     assert records['observations'].tolist() == [4]
@@ -37,8 +38,8 @@ def test_unknown_never_erases_known_label_and_does_not_shift_its_center():
 def test_a_dense_view_gets_one_vote_and_multiple_views_choose_the_winner():
     mapper = VoxelSemanticMap(1.0)
     mapper.add(event([[0.1, 0, 0]]*100, [1]*100), 'world')
-    mapper.add(event([[0.2, 0, 0]], [2]), 'world')
-    mapper.add(event([[0.4, 0, 0]], [2]), 'world')
+    mapper.add(event([[0.2, 0, 0]], [2], 2), 'world')
+    mapper.add(event([[0.4, 0, 0]], [2], 3), 'world')
     records = mapper.records({1: 'chair', 2: 'desk'})
     assert records['label_id'].tolist() == [2]
     assert records['label_votes'].tolist() == [2]
@@ -84,3 +85,23 @@ def test_empty_map_is_an_explicit_empty_artifact(tmp_path):
     summary = export_map(tmp_path, VoxelSemanticMap(), {})
     assert summary['map_points'] == summary['labeled_map_points'] == 0
     assert b'element vertex 0\n' in (tmp_path/'semantic_map.ply').read_bytes()
+
+
+def test_every_scene_event_link_survives_fusion_and_duplicate_events_are_idempotent(tmp_path):
+    mapper = VoxelSemanticMap(1.0)
+    first = event([[0.1, 0, 0]], [1], 41)
+    mapper.add(first, 'world')
+    mapper.add(event([[0.2, 0, 0]], [2], 42), 'world')
+    mapper.add(first, 'world')
+    assert mapper.events == 2
+    offsets, ids = mapper.event_links()
+    assert offsets.tolist() == [0, 2]
+    assert ids.tolist() == [41, 42]
+    events = {41: {'description': 'A desk is visible.', 'token_ids': [7, 8]},
+              42: {'description': 'A room with chairs.', 'token_ids': [9, 10]}}
+    export_map(tmp_path, mapper, {1: 'A desk is visible.', 2: 'A room with chairs.'}, events)
+    saved = np.load(tmp_path/'semantic_map.npz', allow_pickle=False)
+    assert saved['scene_event_ids'].tolist() == [41, 42]
+    stored = json.loads((tmp_path/'scene_events.json').read_text())
+    assert stored['41']['token_ids'] == [7, 8]
+    assert stored['42']['token_ids'] == [9, 10]

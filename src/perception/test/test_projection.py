@@ -4,8 +4,16 @@ import numpy as np
 import pytest
 
 from vln_perception.projection import (
-    Region, associate_regions, parse_regions, project_visible, rotation_matrix,
+    SceneDescription, parse_scene_response, project_visible, rotation_matrix,
+    scene_records, world_to_camera,
 )
+
+
+def result(text='A room with a blue bottle and desks.'):
+    raw = '</Response>' + text
+    return {'response': text, 'raw': raw,
+            'tokens': {'ids': [151670, 421, 13, 151645], 'text': raw,
+                       'source': 'model.generate', 'triggered': True}}
 
 
 def test_rotation_normalizes_quaternion():
@@ -13,6 +21,15 @@ def test_rotation_normalizes_quaternion():
     np.testing.assert_allclose(matrix @ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], atol=1e-12)
     with pytest.raises(ValueError):
         rotation_matrix(SimpleNamespace(x=0.0, y=0.0, z=0.0, w=0.0))
+
+
+def test_world_to_camera_matches_the_original_vln_extrinsic_with_a_rotated_translated_pose():
+    # Original VLN: camera(.3,.2,3) -> body(3,.3,.2), then 90deg world yaw + (10,20,30).
+    world = np.array([[9.7, 23.0, 30.2], [10.0, 22.0, 30.0]])
+    legacy_rotation = [[0, 0, 1], [1, 0, 0], [0, 1, 0]]
+    q = SimpleNamespace(x=0, y=0, z=np.sqrt(0.5), w=np.sqrt(0.5))
+    camera = world_to_camera(world, [10, 20, 30], q, legacy_rotation, [0, 0, 0])
+    np.testing.assert_allclose(camera, [[0.3, 0.2, 3.0], [0, 0, 2.0]], atol=1e-12)
 
 
 def test_projection_rejects_behind_camera_outside_and_occluded_surfaces():
@@ -25,41 +42,35 @@ def test_projection_rejects_behind_camera_outside_and_occluded_surfaces():
     assert len(uv) == len(depth) == 2
 
 
-def test_depth_band_does_not_label_background_or_other_regions():
-    points = np.array([[0, 0, 2], [0.1, 0, 2], [0.2, 0, 2], [0, 0.1, 8], [9, 9, 2]])
-    uv = np.array([[4, 4], [5, 4], [4, 5], [2, 2], [9, 9]])
-    labels, instances, objects = associate_regions(
-        points, uv, points[:, 2], 10, 10, [Region('chair', (100, 100, 800, 800))], {})
-    assert list(labels) == [1, 1, 1, 0, 0]
-    assert list(instances) == [1, 1, 1, 0, 0]
-    assert objects[0]['point_count'] == 3
-    np.testing.assert_allclose(objects[0]['centroid'], [0.1, 0, 2])
+def test_original_description_and_model_tokens_are_preserved_verbatim():
+    output = result()
+    description = parse_scene_response(output)
+    assert description.text == output['response']
+    assert list(description.token_ids) == output['tokens']['ids']
+    assert description.token_text == output['raw']
 
 
-def test_small_overlapping_box_keeps_ownership_and_label_ids_are_stable():
-    points = np.array([[0, 0, 2], [1, 1, 2], [2, 2, 2]], dtype=float)
-    uv = np.array([[4, 4], [5, 4], [4, 5]])
-    ids = {'existing': 1}
-    labels, _, objects = associate_regions(
-        points, uv, points[:, 2], 10, 10,
-        [Region('room', (0, 0, 1000, 1000)), Region('chair', (300, 300, 600, 600))], ids)
-    assert labels.tolist() == [2, 2, 2]
-    assert [x['label'] for x in objects] == ['chair']
-    assert ids == {'existing': 1, 'chair': 2}
-
-
-@pytest.mark.parametrize('text', [
-    'the chair is over there', '{"objects":[{"label":"chair","bbox":[0,0,1]}]}',
-    '{"objects":[{"label":"chair","bbox":[0,0,NaN,1000]}]}',
-    '{"objects":[{"label":"chair","bbox":[0,0,1001,1000]}]}',
-    '{"objects":[{"label":"chair","bbox":[5,0,1,1000]}]}',
-    '{"objects":[{"label":"","bbox":[0,0,1000,1000]}]}',
+@pytest.mark.parametrize('change', [
+    {'response': ''}, {'response': '{"objects":[]}'}, {'tokens': {}},
+    {'tokens': {'ids': [True], 'text': '</Response>abc', 'triggered': True}},
 ])
-def test_ungrounded_response_is_rejected(text):
-    with pytest.raises((ValueError, TypeError)):
-        parse_regions(text)
+def test_missing_or_mismatched_scene_payloads_are_rejected(change):
+    output = result()
+    output.update(change)
+    with pytest.raises(ValueError):
+        parse_scene_response(output)
 
 
-def test_normalized_json_boxes():
-    assert parse_regions('```json\n{"objects":[{"label":" Chair ","bbox":[1,2,3,4]}]}\n```') == [
-        Region('chair', (1.0, 2.0, 3.0, 4.0))]
+def test_all_visible_points_share_the_whole_description_not_object_specific_labels():
+    snapshot = SimpleNamespace(points=np.array([[1, 2, 3], [8, 9, 10], [-1, -2, 4.0]]))
+    text = 'A room containing a desk, chair and refrigerator.'
+    description = SceneDescription(text, (12, 34), '</Response>'+text, 'model.generate')
+    ids = {}
+    records, event = scene_records(snapshot, description, ids, event_id=7)
+    assert ids == {text: 1}
+    assert records['label_id'].tolist() == [1, 1, 1]
+    assert records['event_id'].tolist() == [7, 7, 7]
+    np.testing.assert_allclose(records['z'], [3, 10, 4])
+    assert event['token_ids'] == [12, 34]
+    assert event['scope'] == 'all_camera_visible_points'
+    assert event['point_count'] == 3

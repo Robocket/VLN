@@ -18,10 +18,10 @@ Visualization Manager:
         Reliability Policy: Reliable
         Durability Policy: Volatile
     - Class: rviz_default_plugins/MarkerArray
-      Name: Objects
+      Name: Scene Descriptions
       Enabled: true
       Topic:
-        Value: /object/markers
+        Value: /semantic/markers
         Reliability Policy: Reliable
         Durability Policy: Volatile
     - Class: rviz_default_plugins/Image
