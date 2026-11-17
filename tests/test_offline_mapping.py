@@ -100,9 +100,10 @@ def test_complete_bag_waits_for_each_window_flushes_tail_and_only_fuses_real_res
         assert mapper.scene_events[2]['source_cloud_ns'] == 1_810_000_000
         assert mapper.scene_events[2]['stamp_ns'] == 1_800_000_000
         export_map(output, mapper.map, {1: 'A room with desks and chairs.'}, mapper.scene_events)
-        assert {p.name for p in output.iterdir()} == {'semantic_map.pcd', 'semantic_map.npz'}
-        saved = np.load(output/'semantic_map.npz', allow_pickle=False)
-        events = json.loads(str(saved['scene_events']))
+        assert {p.name for p in output.iterdir()} == {'semantic_map.pcd', 'semantic_map.json'}
+        saved = json.loads((output/'semantic_map.json').read_text())
+        assert saved['point_event_ids'] == [[1, 2]]*3
+        events = saved['scene_events']
         assert events['2']['token_ids'] == [151670, 41, 42, 151645]
     finally:
         if node is not None:

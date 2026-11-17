@@ -298,7 +298,7 @@ def main(argv=None):
     print(f'Saved {report.get("map_points", 0)} points from {report.get("events", 0)} events '
           f'in {report["elapsed_s"]:.1f}s: {output}', flush=True)
     if not report.get('labeled_map_points'):
-        raise SystemExit('Bag processed, but no labeled points were produced; check the task and metadata in semantic_map.npz')
+        raise SystemExit('Bag processed, but no labeled points were produced; check the task and metadata in semantic_map.json')
     return 0
 
 

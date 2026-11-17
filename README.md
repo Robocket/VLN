@@ -112,7 +112,8 @@ bash tools/build_semantic_map.sh --bag data/bags/vln_0420_ros2 --output data/map
 ```
 
 整包逐窗口推理后，将有效触发视角的语义点云按世界坐标合并，仅保存
-PCD 和 NPZ 两个文件。NPZ 包含完整描述、原始 token、标签表和所有重叠事件关联。
+PCD 和 JSON 两个文件。JSON 包含完整描述、原始 token、标签表和所有重叠事件关联，
+可在 VS Code 中直接查看。
 输出目录不能已存在，默认体素分辨率 5 cm；生成物留在 Git 忽略的 `data/`。
 处理规则和本地实跑结果见[离线建图说明](docs/semantic-mapping.md)。
 

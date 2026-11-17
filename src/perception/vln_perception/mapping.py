@@ -108,9 +108,8 @@ def write_pcd(path, records):
         output.write(records.astype(MAP_DTYPE, copy=False).tobytes())
 
 
-
 def export_map(directory, semantic_map, labels, scene_events, metadata=None):
-    """Save a viewable PCD and a self-contained NPZ with exact scene token links."""
+    """Save a viewable PCD and readable JSON with exact scene token links."""
     records = semantic_map.records(labels)
     offsets, event_ids = semantic_map.event_links()
     if set(int(x) for x in event_ids) - set(scene_events):
@@ -121,13 +120,17 @@ def export_map(directory, semantic_map, labels, scene_events, metadata=None):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     write_pcd(directory / 'semantic_map.pcd', records)
-    np.savez_compressed(
-        directory / 'semantic_map.npz', points=records,
-        frame_id=semantic_map.frame_id, voxel_size=semantic_map.voxel_size,
-        scene_event_offsets=offsets, scene_event_ids=event_ids,
-        labels=json.dumps({'0': 'unlabeled', **{str(key): value for key, value in sorted(labels.items()) if key}},
-                          ensure_ascii=False),
-        scene_events=json.dumps({str(key): value for key, value in sorted(scene_events.items())},
-                                ensure_ascii=False),
-        metadata=json.dumps({**(metadata or {}), **summary}, ensure_ascii=False))
+    payload = {
+        'point_cloud_file': 'semantic_map.pcd',
+        'frame_id': semantic_map.frame_id,
+        'voxel_size': semantic_map.voxel_size,
+        'labels': {'0': 'unlabeled', **{str(key): value for key, value in sorted(labels.items()) if key}},
+        'scene_events': {str(key): value for key, value in sorted(scene_events.items())},
+        # Entry i refers to point i in the PCD, including all overlapping scene events.
+        'point_event_ids': [event_ids[int(start):int(end)].tolist()
+                            for start, end in zip(offsets[:-1], offsets[1:])],
+        'metadata': {**(metadata or {}), **summary},
+    }
+    (directory / 'semantic_map.json').write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False)+'\n', encoding='utf-8')
     return summary
