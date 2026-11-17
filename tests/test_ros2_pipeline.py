@@ -115,7 +115,7 @@ def graph(tmp_path, request):
         while time.monotonic() < end:
             executor.spin_once(timeout_sec=0.01)
 
-    def frame(distance=2.0, cloud_frame='world', wall=False, at=None):
+    def frame(distance=2.0, cloud_frame='world', wall=False, at=None, position=(0.0, 0.0, 0.0)):
         stamp = harness.get_clock().now().to_msg() if at is None else Time(nanoseconds=at).to_msg()
         header = Header(stamp=stamp, frame_id=cloud_frame)
         points = [(distance, -0.1, -0.1), (distance, 0.1, -0.1), (distance, 0.0, 0.1)]
@@ -123,6 +123,7 @@ def graph(tmp_path, request):
             points += [(1.0, float(y), 1.5) for y in np.arange(-0.5, 0.6, 0.1)]
         publishers['cloud'].publish(point_cloud2.create_cloud_xyz32(header, points))
         odom = Odometry(header=Header(stamp=stamp, frame_id='world'))
+        odom.pose.pose.position.x, odom.pose.pose.position.y, odom.pose.pose.position.z = position
         odom.pose.pose.orientation.w = 1.0
         publishers['odom'].publish(odom)
         pump(0.02)
@@ -174,6 +175,13 @@ def test_response_labels_camera_visible_cloud_and_preserves_world_coordinates(gr
     assert legend['token_ids'] == worker.token_ids
     assert legend['description'] == worker.response
     assert legend['point_count'] == legend['labeled_points'] == legend['visible_points']
+    assert legend['viewpoint']['position'] == [0, 0, 0]
+    np.testing.assert_allclose(legend['viewpoint']['forward'], [1, 0, 0])
+    np.testing.assert_allclose(legend['viewpoint']['up'], [0, 0, -1])
+    assert len(legend['window_viewpoints']) == 4
+    assert legend['window_viewpoints'][-1] == legend['viewpoint']
+    assert [v['stamp_ns'] for v in legend['window_viewpoints']] == [
+        f['stamp_ns'] for f in worker.requests[0]['frames']]
     assert 'grounding_prompt' not in worker.requests[0]
     assert len(worker.requests) == 1 and len(worker.requests[0]['frames']) == 4
 
@@ -197,11 +205,13 @@ def test_delayed_response_uses_captured_cloud_not_latest_cloud(graph):
     worker.gate.clear()
     stamp = batch()
     wait(lambda: bool(worker.requests))
-    frame(distance=3.0)
+    frame(distance=7.0, position=(5.0, 0.0, 0.0))
     worker.gate.set()
     wait(lambda: bool(received['clouds']))
     assert np.allclose(point_cloud2.read_points(received['clouds'][-1])['x'], 2.0)
     assert not received['coords']
+    wait(lambda: bool(received['labels']))
+    assert json.loads(received['labels'][-1].data)['viewpoint']['position'] == [0, 0, 0]
     header = received['clouds'][-1].header
     assert header.stamp.sec * 1_000_000_000 + header.stamp.nanosec == stamp
 
@@ -241,6 +251,10 @@ def test_rectified_camera_info_applies_its_rotation_before_projection(graph):
     frame()
     assert len(semantic.window) == 1
     np.testing.assert_array_equal(semantic.window[0][0].uv, [[4, 3], [4, 4], [3, 4]])
+    viewpoint = semantic.window[0][0].viewpoint
+    # R_rect is a 90-degree optical roll: effective image up points along -world Y.
+    np.testing.assert_allclose(viewpoint['up'], [0, -1, 0])
+    assert viewpoint['camera_model']['image_rectified'] is True
 
 
 @pytest.mark.parametrize('graph', ['tf'], indirect=True)
@@ -249,6 +263,9 @@ def test_calibrated_tf_projects_points_in_the_image_optical_frame(graph):
     harness, semantic, worker, received, pubs, wait, pump, frame, batch = graph
     broadcaster = StaticTransformBroadcaster(harness)
     transform = TransformStamped(header=Header(frame_id='world'), child_frame_id='camera_color_optical_frame')
+    transform.transform.translation.x = 0.2
+    transform.transform.translation.y = -0.3
+    transform.transform.translation.z = 0.1
     transform.transform.rotation.x = transform.transform.rotation.y = 0.5
     transform.transform.rotation.z = transform.transform.rotation.w = 0.5
     broadcaster.sendTransform(transform)
@@ -256,6 +273,11 @@ def test_calibrated_tf_projects_points_in_the_image_optical_frame(graph):
     batch()
     wait(lambda: bool(received['clouds']))
     assert np.allclose(point_cloud2.read_points(received['clouds'][-1])['x'], 2.0)
+    wait(lambda: bool(received['labels']))
+    view = json.loads(received['labels'][-1].data)['viewpoint']
+    np.testing.assert_allclose(view['position'], [0.2, -0.3, 0.1], atol=1e-12)
+    np.testing.assert_allclose(view['orientation_xyzw'], [0.5]*4, atol=1e-12)
+    assert view['transform_source'] == 'tf'
 
 
 def test_clock_rewind_resets_session_and_keeps_sensor_subscriptions_working(graph):

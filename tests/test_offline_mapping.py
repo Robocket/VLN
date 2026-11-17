@@ -53,7 +53,8 @@ def make_bag(path):
         image.header = Header(stamp=Time(nanoseconds=timestamp).to_msg(), frame_id='camera_optical_frame')
         # Future cloud/pose timestamps exercise offline nearest matching rather than arrival order.
         odom = Odometry(header=Header(stamp=Time(nanoseconds=timestamp+5_000_000).to_msg(), frame_id='world'))
-        odom.pose.pose.orientation.w = 1.0
+        odom.pose.pose.orientation.z = float(np.sin(0.15))
+        odom.pose.pose.orientation.w = float(np.cos(0.15))
         cloud = point_cloud2.create_cloud_xyz32(
             Header(stamp=Time(nanoseconds=timestamp+10_000_000).to_msg(), frame_id='world'),
             [(2.0, -0.1, -0.1), (2.0, 0.1, -0.1), (2.0, 0.0, 0.1)])
@@ -76,6 +77,7 @@ def test_complete_bag_waits_for_each_window_flushes_tail_and_only_fuses_real_res
         node = SemanticNode(settings=SimpleNamespace(sample_fps=20.0, timeout=1.0), client=client,
                             parameter_overrides=[
                                 Parameter('start_worker', value=False),
+                                Parameter('camera_to_body_translation', value=[0.1, 0.2, 0.3]),
                                 Parameter('fx', value=4.0), Parameter('fy', value=4.0),
                                 Parameter('cx', value=4.0), Parameter('cy', value=4.0),
                                 Parameter('image_width', value=8), Parameter('image_height', value=8)])
@@ -99,12 +101,21 @@ def test_complete_bag_waits_for_each_window_flushes_tail_and_only_fuses_real_res
         assert not list(output.iterdir()), 'Inference must not create per-window or per-event files'
         assert mapper.scene_events[2]['source_cloud_ns'] == 1_810_000_000
         assert mapper.scene_events[2]['stamp_ns'] == 1_800_000_000
+        view = mapper.scene_events[2]['viewpoint']
+        np.testing.assert_allclose(view['position'], [0.1*np.cos(0.3)-0.2*np.sin(0.3),
+                                                     0.1*np.sin(0.3)+0.2*np.cos(0.3), 0.3])
+        np.testing.assert_allclose(view['forward'], [np.cos(0.3), np.sin(0.3), 0], atol=1e-12)
+        assert view['stamp_ns'] == 1_800_000_000
+        assert view['source_pose_ns'] == 1_805_000_000
+        assert len(mapper.scene_events[1]['window_viewpoints']) == 4
+        assert mapper.scene_events[2]['window_viewpoints'] == [view], 'Preserve the final partial window'
         export_map(output, mapper.map, {1: 'A room with desks and chairs.'}, mapper.scene_events)
         assert {p.name for p in output.iterdir()} == {'semantic_map.pcd', 'semantic_map.json'}
         saved = json.loads((output/'semantic_map.json').read_text())
         assert saved['point_event_ids'] == [[1, 2]]*3
         events = saved['scene_events']
         assert events['2']['token_ids'] == [151670, 41, 42, 151645]
+        assert events['2']['viewpoint'] == view
     finally:
         if node is not None:
             node.destroy_node()

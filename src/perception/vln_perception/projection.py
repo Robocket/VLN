@@ -1,5 +1,6 @@
 """Camera projection and scene-description labels for complete visible point clouds."""
 
+from copy import deepcopy
 from dataclasses import dataclass
 import hashlib
 
@@ -58,6 +59,33 @@ def world_to_camera(points, position, orientation, camera_to_body_rotation, came
     return (body - np.asarray(camera_to_body_translation)) @ np.asarray(camera_to_body_rotation).reshape(3, 3)
 
 
+def camera_viewpoint(position, camera_to_world_rotation):
+    """World pose of the projection camera: optical X right, Y down, Z forward."""
+    rotation = np.asarray(camera_to_world_rotation, dtype=float).reshape(3, 3)
+    quaternion = np.empty(4)
+    trace = np.trace(rotation)
+    if trace > 0:
+        scale = 2 * np.sqrt(1 + trace)
+        quaternion[:3] = [rotation[2, 1]-rotation[1, 2], rotation[0, 2]-rotation[2, 0],
+                          rotation[1, 0]-rotation[0, 1]]
+        quaternion[:3] /= scale
+        quaternion[3] = scale / 4
+    else:
+        i = int(np.argmax(np.diag(rotation)))
+        j, k = (i+1) % 3, (i+2) % 3
+        scale = 2 * np.sqrt(1 + rotation[i, i] - rotation[j, j] - rotation[k, k])
+        quaternion[i] = scale / 4
+        quaternion[j] = (rotation[j, i]+rotation[i, j]) / scale
+        quaternion[k] = (rotation[k, i]+rotation[i, k]) / scale
+        quaternion[3] = (rotation[k, j]-rotation[j, k]) / scale
+    quaternion /= np.linalg.norm(quaternion)
+    if quaternion[3] < 0:
+        quaternion *= -1
+    return {'position': np.asarray(position, dtype=float).tolist(),
+            'orientation_xyzw': quaternion.tolist(),
+            'forward': rotation[:, 2].tolist(), 'up': (-rotation[:, 1]).tolist()}
+
+
 def project_visible(points, camera_points, image, k, distortion, model,
                     near=0.05, far=30.0, cell_size=2, occlusion_tolerance=0.1):
     """Keep finite, in-frustum points and the nearest surface per image cell."""
@@ -110,5 +138,5 @@ def scene_records(snapshot, description, label_ids, event_id):
              'token_ids': list(description.token_ids), 'token_text': description.token_text,
              'token_source': description.token_source, 'point_count': len(records),
              'centroid': np.median(snapshot.points, axis=0).tolist() if len(records) else None,
-             'scope': 'all_camera_visible_points'}
+             'scope': 'all_camera_visible_points', 'viewpoint': deepcopy(snapshot.viewpoint)}
     return records, event

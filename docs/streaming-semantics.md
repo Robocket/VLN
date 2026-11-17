@@ -85,6 +85,23 @@ plumb_bob、rational_polynomial、equidistant；`image_rectified=true` 使用 R/
 本地 bag 没有 CameraInfo，因而沿用原配置。
 可显式选择 `transform_mode: tf`，按图像时间查询 world 到 optical frame 的变换；查询失败时跳过。
 
+## 每段描述的观察视角
+
+每次触发保存 `viewpoint`，对应实际贴标签的窗口最后一帧；`window_viewpoints` 按时间顺序
+保存本次送给模型的所有输入帧视角。两者在捕获图像时固定，推理完成后不读取最新位姿替代。
+
+- `position`：相机在 `frame_id` 世界坐标系中的位置，单位米。
+- `orientation_xyzw`：四元数，表示投影相机坐标系到世界坐标系的旋转。
+- `forward` / `up`：世界坐标中的观察方向和画面向上方向，均为单位向量。
+- `stamp_ns` / `source_pose_ns`：图像时间和匹配里程计时间；TF 模式在图像时间查询，后者为 null。
+- `camera_model`：图像宽高、投影内参、畸变参数和是否已校正。
+- `transform_source` / `image_frame_id`：变换来源及图像坐标系名称。
+
+相机位置包含相机到机体的平移外参，朝向包含机体姿态和相机安装旋转。
+投影相机轴为 X 向右、Y 向下、Z 向前；已校正图像的姿态还组合 CameraInfo.R 的逆旋转，
+与实际投影使用的坐标一致。里程计模式仍采用容差内的最近位姿，不把它当成精确插值位姿。
+`centroid` 保留的是可见点云中值中心，用于显示描述文字，与相机位置分别记录。
+
 ## 标签与可见范围
 
 持续任务由 `task` 指定，可向 `/semantic/task` 发布字符串更新。
@@ -103,7 +120,7 @@ plumb_bob、rational_polynomial、equidistant；`image_rectified=true` 使用 R/
 | 输出话题 | 内容 |
 | --- | --- |
 | `/semantic/cloud` | x/y/z FLOAT32，rgb/label_id/event_id UINT32 |
-| `/semantic/labels` | 事件 ID、完整描述、原始 token、标签字典、点数、视角中心、源时间戳 |
+| `/semantic/labels` | 事件 ID、完整描述、原始 token、标签字典、相机位姿、输入窗口视角、源时间戳 |
 | `/semantic/projection` | 当前触发画面的所有可见点按场景着色 |
 | `/semantic/markers` | RViz 中显示该次场景描述，位置为整片可见点云的中值中心 |
 | `/semantic/state` | 原始模型状态、token、响应、窗口时间、耗时、拒绝原因 |

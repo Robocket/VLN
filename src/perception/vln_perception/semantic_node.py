@@ -24,7 +24,8 @@ from std_msgs.msg import Header, String
 from visualization_msgs.msg import Marker, MarkerArray
 
 from .projection import (
-    DEFAULT_TASK, parse_scene_response, project_visible, rotation_matrix, scene_records, world_to_camera,
+    DEFAULT_TASK, camera_viewpoint, parse_scene_response, project_visible, rotation_matrix,
+    scene_records, world_to_camera,
 )
 from .streamer import DEFAULT_ROOT, DEFAULT_SOCKET, SocketClient, StreamerSettings, WorkerProcess
 
@@ -43,6 +44,7 @@ class Snapshot:
     uv: np.ndarray
     depth: np.ndarray
     frame_id: str
+    viewpoint: dict
 
 
 class SemanticNode(Node):
@@ -203,6 +205,8 @@ class SemanticNode(Node):
             rotation = rotation_matrix(transform.rotation)
             t = transform.translation
             camera_points = points @ rotation.T + [t.x, t.y, t.z]
+            camera_rotation = rotation.T
+            camera_position = -camera_rotation @ np.array([t.x, t.y, t.z])
         else:
             odom = self.nearest(self.odoms, timestamp)
             if odom.header.frame_id != cloud.header.frame_id:
@@ -211,16 +215,26 @@ class SemanticNode(Node):
             camera_points = world_to_camera(points, [p.x, p.y, p.z], odom.pose.pose.orientation,
                                              self.param('camera_to_body_rotation'),
                                              self.param('camera_to_body_translation'))
+            body_rotation = rotation_matrix(odom.pose.pose.orientation)
+            camera_rotation = body_rotation @ np.array(self.param('camera_to_body_rotation')).reshape(3, 3)
+            camera_position = np.array([p.x, p.y, p.z]) + body_rotation @ self.param('camera_to_body_translation')
             pose_stamp = stamp_ns(odom.header.stamp)
         if rectification is not None:
             camera_points = camera_points @ rectification.T
+            camera_rotation = camera_rotation @ rectification.T
         points, uv, depth = project_visible(
             points, camera_points, image, k, distortion, model, self.param('near_clip'),
             self.param('far_clip'), self.param('visibility_cell_size'), self.param('occlusion_tolerance'))
         if not len(points):
             raise ValueError('No visible point cloud samples in the camera frustum')
+        viewpoint = camera_viewpoint(camera_position, camera_rotation)
+        viewpoint.update(stamp_ns=timestamp, source_pose_ns=pose_stamp, frame_id=cloud.header.frame_id,
+                         image_frame_id=msg.header.frame_id, transform_source=self.param('transform_mode'),
+                         camera_model={'width': width, 'height': height, 'intrinsic_matrix': k.tolist(),
+                                       'distortion_model': model, 'distortion': distortion.tolist(),
+                                       'image_rectified': self.param('image_rectified')})
         return Snapshot(deepcopy(msg.header), stamp_ns(cloud.header.stamp), pose_stamp,
-                        image, points, uv, depth, cloud.header.frame_id)
+                        image, points, uv, depth, cloud.header.frame_id, viewpoint)
 
     def on_image(self, msg):
         timestamp = stamp_ns(msg.header.stamp)
@@ -262,7 +276,7 @@ class SemanticNode(Node):
                 result = self.client.infer(request)
             except Exception as exc:
                 result = {'ok': False, 'error': str(exc)}
-            self.results.put((generation, request, batch[-1][0], result))
+            self.results.put((generation, request, batch, result))
 
         self.thread = threading.Thread(target=run, daemon=True)
         self.thread.start()
@@ -271,7 +285,8 @@ class SemanticNode(Node):
         if self.process is not None and self.process.process.poll() is not None:
             raise RuntimeError(f'OneStreamer worker exited: {self.process.process.returncode}')
         while not self.results.empty():
-            generation, request, snapshot, result = self.results.get()
+            generation, request, batch, result = self.results.get()
+            snapshot = batch[-1][0]
             self.busy = False
             self.accept_after = self.last_seen
             state = {k: value for k, value in result.items() if k != 'keyframes'}
@@ -287,7 +302,8 @@ class SemanticNode(Node):
                     raise ValueError('OneStreamer result does not match the captured frame window')
                 elif result.get('response') is not None:
                     description = parse_scene_response(result)
-                    records, event = self.annotate(snapshot, description, generation)
+                    records, event = self.annotate(snapshot, description, generation,
+                                                   [item.viewpoint for item, _ in batch])
                     state['scene_label_id'] = event['label_id']
                     state['scene_event_id'] = event['event_id']
                     state['labeled_points'] = len(records)
@@ -296,9 +312,10 @@ class SemanticNode(Node):
                 self.get_logger().error(f'Semantic annotation rejected: {exc}')
             self.state_pub.publish(String(data=json.dumps(state, ensure_ascii=False)))
 
-    def annotate(self, snapshot, description, generation):
+    def annotate(self, snapshot, description, generation, window_viewpoints):
         self.event_counter += 1
         records, event = scene_records(snapshot, description, self.label_ids, self.event_counter)
+        event['window_viewpoints'] = deepcopy(window_viewpoints)
         header = deepcopy(snapshot.header)
         header.frame_id = snapshot.frame_id
         event.update(stamp_ns=stamp_ns(snapshot.header.stamp), frame_id=snapshot.frame_id,

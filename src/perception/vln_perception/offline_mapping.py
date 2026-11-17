@@ -169,7 +169,8 @@ class OfflineMapper:
                 records, event = scene_records(snapshot, description, node.label_ids, event_id)
                 event.update(window=self.counts['windows'], stamp_ns=stamp_ns(snapshot.header.stamp),
                              source_cloud_ns=snapshot.cloud_stamp_ns, source_pose_ns=snapshot.pose_stamp_ns,
-                             frame_id=snapshot.frame_id, image_frame_id=snapshot.header.frame_id)
+                             frame_id=snapshot.frame_id, image_frame_id=snapshot.header.frame_id,
+                             window_viewpoints=[item.viewpoint for item, _ in batch])
                 labeled_points = len(records)
                 if len(records):
                     self.map.add(records, snapshot.frame_id)

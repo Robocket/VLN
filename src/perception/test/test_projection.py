@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from vln_perception.projection import (
-    SceneDescription, parse_scene_response, project_visible, rotation_matrix,
+    SceneDescription, camera_viewpoint, parse_scene_response, project_visible, rotation_matrix,
     scene_records, world_to_camera,
 )
 
@@ -62,7 +62,8 @@ def test_missing_or_mismatched_scene_payloads_are_rejected(change):
 
 
 def test_all_visible_points_share_the_whole_description_not_object_specific_labels():
-    snapshot = SimpleNamespace(points=np.array([[1, 2, 3], [8, 9, 10], [-1, -2, 4.0]]))
+    snapshot = SimpleNamespace(points=np.array([[1, 2, 3], [8, 9, 10], [-1, -2, 4.0]]),
+                               viewpoint=camera_viewpoint([0, 0, 0], np.eye(3)))
     text = 'A room containing a desk, chair and refrigerator.'
     description = SceneDescription(text, (12, 34), '</Response>'+text, 'model.generate')
     ids = {}
@@ -74,3 +75,17 @@ def test_all_visible_points_share_the_whole_description_not_object_specific_labe
     assert event['token_ids'] == [12, 34]
     assert event['scope'] == 'all_camera_visible_points'
     assert event['point_count'] == 3
+    assert event['viewpoint']['position'] == [0, 0, 0]
+
+
+@pytest.mark.parametrize('rotation', [np.eye(3), np.diag([1, -1, -1]),
+                                     np.array([[np.cos(1e-7), -np.sin(1e-7), 0],
+                                               [np.sin(1e-7), np.cos(1e-7), 0], [0, 0, 1]]),
+                                     np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])])
+def test_viewpoint_orientation_and_optical_axes_match_the_camera_to_world_rotation(rotation):
+    view = camera_viewpoint([1, 2, 3], rotation)
+    q = SimpleNamespace(**dict(zip(('x', 'y', 'z', 'w'), view['orientation_xyzw'])))
+    np.testing.assert_allclose(rotation_matrix(q), rotation, atol=1e-12)
+    np.testing.assert_allclose(view['forward'], rotation @ [0, 0, 1])
+    np.testing.assert_allclose(view['up'], rotation @ [0, -1, 0])
+    assert view['position'] == [1, 2, 3]

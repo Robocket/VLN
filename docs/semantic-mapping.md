@@ -44,11 +44,15 @@ bash tools/build_semantic_map.sh \
 | 文件 | 内容 |
 | --- | --- |
 | `semantic_map.pcd` | 用于查看的总图，含主 label_id、RGB、observations、label_votes |
-| `semantic_map.json` | 标签、完整描述、原始 token、每个点的所有事件关联和运行元数据 |
+| `semantic_map.json` | 标签、完整描述、原始 token、相机位姿、每个点的事件关联和运行元数据 |
 
 不生成逐帧日志、单事件文件、预览图、PLY 或重复的标注子集。
 JSON 可在 VS Code 中直接打开、折叠和搜索。`labels`、`scene_events`、`metadata` 都是普通 JSON 对象。
 `metadata` 中包含是否完成、窗口/事件数量和参数，部分运行不会标成完整结果。
+每段描述的 `viewpoint` 保存贴标签时的相机位置、朝向四元数、观察方向、画面向上方向及内参；
+`window_viewpoints` 保存本次输入窗口各帧的视角。位置为世界坐标，单位米，四元数顺序为 xyzw。
+多视角信息保存在这些事件中，PCD 的单一 VIEWPOINT 字段不代表某一次观察。
+坐标约定见[观察视角说明](streaming-semantics.md#每段描述的观察视角)。
 
 ```python
 import json
@@ -61,6 +65,7 @@ i = 0  # PCD 中点的索引，从 0 开始
 for event_id in data['point_event_ids'][i]:
     event = data['scene_events'][str(event_id)]
     print(event['label_id'], event['description'], event['token_ids'])
+    print(event['viewpoint']['position'], event['viewpoint']['orientation_xyzw'])
 ```
 
 `point_event_ids[i]` 对应同目录 PCD 中第 i 个点的全部事件 ID，顺序严格与 PCD 一致。
