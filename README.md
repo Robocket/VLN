@@ -69,11 +69,22 @@ ros2 topic pub --once /semantic/task std_msgs/msg/String "{data: 'Report when a 
 
 ## 录包与导航
 
-本地数据的播放脚本自动加载 Livox 接口并发布时钟：
+播放脚本自动加载本地 Livox 接口、发布时钟，并打开彩色图像窗口：
 
 ```bash
-bash data/play_vln_0420.sh --loop --exclude-topics /object/absolute_coords_list
+bash tools/play_bag.sh
+
+# 彩色、深度双窗口与循环播放
+bash tools/play_bag.sh --show-depth --loop
+
+# 与当前感知节点同时运行时排除录包旧坐标
+bash tools/play_bag.sh --loop --exclude-topics /object/absolute_coords_list
 ```
+
+图像窗口中按 **空格** 暂停/继续，按 **Q/Esc** 或关闭窗口退出并停止播放器。
+支持 `--bag`、`--rate`、`--start-offset`、`--duration`、`--keep-open`；
+`--image-topic` 选择图像话题，深度窗口可用 `--depth-topic` 和 `--depth-max` 设置话题和显示量程。
+默认 bag 为 `data/vln_0420_ros2`，默认显示 `/camera/color/image_raw`。
 
 同时运行感知时使用 `use_sim_time:=true`，并排除录包内的旧物体坐标，避免覆盖新标注。
 输入不再需要深度图；投影直接读取点云。录包缺少 CameraInfo 时使用配置中的内参。
