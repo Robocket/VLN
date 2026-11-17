@@ -32,4 +32,4 @@ jobs:
           source install/setup.bash
           colcon test --event-handlers console_direct+ --return-code-on-test-failure
           colcon test-result --verbose
-          /usr/bin/python3 -m pytest -q tests/test_ros2_pipeline.py
+          /usr/bin/python3 -m pytest -q tests

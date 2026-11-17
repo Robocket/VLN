@@ -25,8 +25,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from vln_interfaces.msg import ObjectCoordinate, ObjectCoordinates
 
 from .projection import (
-    DEFAULT_TASK, GROUNDING_FORMAT, associate_regions, label_color, parse_regions,
-    project_visible, rotation_matrix,
+    DEFAULT_TASK, GROUNDING_FORMAT, parse_regions, project_visible, rotation_matrix, semantic_records,
 )
 from .streamer import DEFAULT_ROOT, DEFAULT_SOCKET, SocketClient, StreamerSettings, WorkerProcess
 
@@ -300,15 +299,9 @@ class SemanticNode(Node):
     def annotate(self, snapshot, regions, generation):
         image = snapshot.image.copy()
         height, width = image.shape[:2]
-        labels, instances, annotations = associate_regions(
-            snapshot.points, snapshot.uv, snapshot.depth, width, height, regions, self.label_ids,
+        records, annotations = semantic_records(
+            snapshot, regions, self.label_ids,
             self.param('foreground_depth_band'), self.param('min_region_points'))
-        colors = {value: label_color(key) for key, value in self.label_ids.items()}
-        records = np.empty(len(labels), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4'),
-                                              ('rgb', '<u4'), ('label_id', '<u4'), ('instance_id', '<u4')])
-        records['x'], records['y'], records['z'] = snapshot.points.T
-        records['label_id'], records['instance_id'] = labels, instances
-        records['rgb'] = np.array([colors.get(int(x), 0x808080) for x in labels], dtype=np.uint32)
         header = deepcopy(snapshot.header)
         header.frame_id = snapshot.frame_id
         fields = [PointField(name=name, offset=i*4, datatype=(PointField.FLOAT32 if i < 3 else PointField.UINT32),
@@ -343,7 +336,7 @@ class SemanticNode(Node):
                   'source_pose_ns': snapshot.pose_stamp_ns, 'generation': generation,
                   'labels': {'0': 'unlabeled', **{str(value): key for key, value in self.label_ids.items()}},
                   'regions': annotations, 'method': 'vlm_box_depth_band_weak_labels',
-                  'visible_points': len(labels), 'labeled_points': int(np.count_nonzero(labels))}
+                  'visible_points': len(records), 'labeled_points': int(np.count_nonzero(records['label_id']))}
         self.cloud_pub.publish(cloud)
         self.labels_pub.publish(String(data=json.dumps(legend, ensure_ascii=False)))
         self.coords_pub.publish(coords)

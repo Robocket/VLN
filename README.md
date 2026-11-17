@@ -89,6 +89,16 @@ ros2 run vln_navigation instruction_cli
 无需模型的已有语义坐标回放可使用 `enable_perception:=false`。
 规划器发布 `/planned_path`，不包含路径执行或速度控制器。
 
+## 离线语义建图
+
+```bash
+bash tools/build_semantic_map.sh --bag data/vln_0420_ros2 --output data/maps/my_run
+```
+
+整包逐窗口推理后，将有效触发视角的语义点云按世界坐标合并，保存 PLY、PCD、NPZ、
+标签表和俯视预览。输出目录不能已存在，默认体素分辨率 5 cm；生成物留在 Git 忽略的 `data/`。
+处理规则和本地实跑结果见[离线建图说明](docs/semantic-mapping.md)。
+
 ## 验证
 
 ```bash
@@ -96,7 +106,7 @@ source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 colcon test --event-handlers console_direct+ --return-code-on-test-failure
 colcon test-result --verbose
-ROS_DOMAIN_ID=87 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST /usr/bin/python3 -m pytest -q tests/test_ros2_pipeline.py
+ROS_DOMAIN_ID=87 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST /usr/bin/python3 -m pytest -q tests
 ```
 
 自动化测试覆盖真实 DDS、Unix socket 协议、主动触发门控、快照一致性、TF、点云遮挡和规划。

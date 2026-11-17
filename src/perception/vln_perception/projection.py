@@ -10,6 +10,12 @@ import cv2
 import numpy as np
 
 
+SEMANTIC_POINT_DTYPE = np.dtype([
+    ('x', '<f4'), ('y', '<f4'), ('z', '<f4'), ('rgb', '<u4'),
+    ('label_id', '<u4'), ('instance_id', '<u4'),
+])
+
+
 DEFAULT_TASK = ('What objects are visible in the current image? Report the first clear view, '
                 'then respond only for newly visible objects or a clear semantic scene change.')
 GROUNDING_FORMAT = (
@@ -137,3 +143,17 @@ def label_color(label):
     digest = hashlib.sha256(label.encode()).digest()
     r, g, b = (64 + value % 192 for value in digest[:3])
     return (r << 16) | (g << 8) | b
+
+
+def semantic_records(snapshot, regions, label_ids, depth_band=0.3, min_points=3):
+    """Shared online/offline annotation; coordinates stay in the input world frame."""
+    height, width = snapshot.image.shape[:2]
+    labels, instances, annotations = associate_regions(
+        snapshot.points, snapshot.uv, snapshot.depth, width, height, regions,
+        label_ids, depth_band, min_points)
+    colors = {value: label_color(key) for key, value in label_ids.items()}
+    records = np.empty(len(labels), dtype=SEMANTIC_POINT_DTYPE)
+    records['x'], records['y'], records['z'] = snapshot.points.T
+    records['label_id'], records['instance_id'] = labels, instances
+    records['rgb'] = np.array([colors.get(int(x), 0x808080) for x in labels], dtype=np.uint32)
+    return records, annotations
